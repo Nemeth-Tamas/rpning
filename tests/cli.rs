@@ -1,4 +1,5 @@
-use std::process::Command;
+use std::io::Write;
+use std::process::{Command, Stdio};
 
 #[test]
 fn cli_evaluates_expression() {
@@ -41,4 +42,48 @@ fn cli_exits_with_error_on_invalid_token() {
         .expect("failed to start rpn binary");
 
     assert!(!output.status.success());
+}
+
+#[test]
+fn cli_accepts_attached_operator() {
+    let output = Command::new(env!("CARGO_BIN_EXE_rpn"))
+        .args(["--eval", "5 3+"])
+        .output()
+        .expect("failed to start rpn binary");
+
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "8");
+}
+
+#[test]
+fn stdin_supports_enter_separated_calculation() {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_rpn"))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("failed to start rpn binary");
+
+    let mut stdin = child.stdin.take().expect("missing child stdin");
+
+    stdin
+        .write_all(b"5\n3+\n2*\n:stack\n")
+        .expect("failed to write commands");
+
+    drop(stdin);
+
+    let output = child.wait_with_output().expect("failed to read output");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert_eq!(
+        stdout.lines().collect::<Vec<_>>(),
+        ["5", "8", "16", "[0] 16",]
+    );
 }

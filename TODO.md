@@ -8,22 +8,25 @@
 - [x] Define GitHub and development workflow
 - [x] Verify Cargo package and modular source layout
 - [x] Verify initial README and build instructions
-- [ ] Pass initial formatting, testing and Clippy gates
-- [ ] Verify strict Clippy warnings are resolved
+- [x] Pass initial formatting, testing and Clippy gates
+- [x] Verify strict Clippy warnings are resolved
+
 
 ## M1 — Functional RPN engine
 
-- [ ] Verify exact integer and rational value support
-- [ ] Verify numeric literal parsing
-- [ ] Verify addition, subtraction, multiplication and division
-- [ ] Verify dup, drop, swap and clear
-- [ ] Verify correct RPN operand order
-- [ ] Verify atomic input-line evaluation
-- [ ] Verify stack underflow and division-by-zero handling
-- [ ] Verify minimal interactive REPL
+- [x] Verify exact integer and rational value support
+- [x] Verify numeric literal parsing
+- [x] Verify addition, subtraction, multiplication and division
+- [x] Verify dup, drop, swap and clear
+- [x] Verify correct RPN operand order
+- [x] Verify atomic input-line evaluation
+- [x] Verify stack underflow and division-by-zero handling
+- [x] Verify minimal interactive REPL
 - [x] Verify one-shot CLI evaluation
 - [ ] Verify stdin and pipe handling
-- [ ] Pass unit and integration tests
+- [x] Pass unit and integration tests
+- [ ] Verify attached numeric operators and Enter-separated calculations
+
 
 ## M2 — Arbitrary-precision foundation
 
@@ -41,8 +44,8 @@
 
 ## M3 — Advanced stack and mathematics
 
-- [ ] Verify over, rot, nip and tuck against unit tests
-- [ ] Verify atomic rollback for extended stack operations
+- [x] Verify over, rot, nip and tuck against unit tests
+- [x] Verify atomic rollback for extended stack operations
 - [ ] Implement pick, roll and depth
 - [ ] Add stack snapshots and undo/redo
 - [ ] Implement stack registers

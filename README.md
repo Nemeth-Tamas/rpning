@@ -11,6 +11,7 @@ Early functional proof of concept.
 
 - Exact arbitrary-precision integers and rational numbers
 - Exact decimal and scientific-notation input
+- Numeric literals with attached trailing arithmetic operators
 - Addition, subtraction, multiplication and division
 - Basic and extended stack manipulation
 - Atomic evaluation of input lines
@@ -102,6 +103,28 @@ Result:
 ```
 
 Exact fractional output is used for now. Decimal formatting will be implemented separately.
+
+### Calculator-style Enter workflow
+
+Interactive mode preserves the stack between input lines.
+
+A trailing arithmetic operator can be attached directly to a valid numeric literal, without a separating space:
+
+```text
+> 5
+5
+> 3+
+8
+> 2*
+16
+```
+
+This also works with exact fractions (`1/3+`), negative numbers (`-3+`), and scientific notation (`2e-3+`).
+
+Operators execute when the input line is submitted with Enter. Immediate execution on keypress will be implemented separately for dedicated keypad mode.
+
+For now, only a single trailing operator can be attached to a numeric literal. General whitespace-free expressions such as `3+4*` are not yet supported.
+
 
 ## Commands
 

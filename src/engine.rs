@@ -63,7 +63,7 @@ impl Calculator {
     pub fn evaluate(&mut self, input: &str) -> Result<(), CalcError> {
         let mut working = self.stack.clone();
 
-        for token in input.split_whitespace() {
+        for token in tokenize(input) {
             match token {
                 "+" | "-" | "*" | "/" => {
                     require_depth(&working, 2, token)?;
@@ -155,6 +155,37 @@ impl Calculator {
     }
 }
 
+/// Split a numeric literal with an attached trailing operator.
+///
+/// Examples:
+/// "3+"    -> ["3", "+"]
+/// "-2.5*" -> ["-2.5", "*"]
+/// "1/3+"  -> ["1/3", "+"]
+///
+/// Existing exact literals are preserved. Only one trailing
+/// operator is separated from a valid numeric literal.
+fn tokenize(input: &str) -> impl Iterator<Item = &str> {
+    input.split_whitespace().flat_map(|chunk| {
+        let suffix = chunk.char_indices().last().and_then(|(index, last)| {
+            let (number, operator) = chunk.split_at(index);
+
+            if index > 0 && matches!(last, '+' | '-' | '*' | '/') && parse_literal(number).is_some()
+            {
+                Some((number, operator))
+            } else {
+                None
+            }
+        });
+
+        let tokens = match suffix {
+            Some((number, operator)) => [Some(number), Some(operator)],
+            None => [Some(chunk), None],
+        };
+
+        tokens.into_iter().flatten()
+    })
+}
+
 fn require_depth(stack: &[Number], required: usize, operator: &str) -> Result<(), CalcError> {
     if stack.len() >= required {
         Ok(())
@@ -215,6 +246,52 @@ mod tests {
         calc.evaluate("1 3 / 3 *").unwrap();
 
         assert_eq!(calc.top().unwrap().to_string(), "1");
+    }
+
+    #[test]
+    fn attached_operator_uses_existing_stack() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("5").unwrap();
+        assert_stack(&calc, &["5"]);
+
+        calc.evaluate("3+").unwrap();
+        assert_stack(&calc, &["8"]);
+
+        calc.evaluate("2*").unwrap();
+        assert_stack(&calc, &["16"]);
+    }
+
+    #[test]
+    fn attached_operator_preserves_exact_numbers() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("1/3").unwrap();
+        calc.evaluate("1/3+").unwrap();
+        assert_stack(&calc, &["2/3"]);
+
+        calc.evaluate("clear 0.1 0.2+").unwrap();
+        assert_stack(&calc, &["3/10"]);
+
+        calc.evaluate("clear 5 -3+").unwrap();
+        assert_stack(&calc, &["2"]);
+
+        calc.evaluate("clear 1e-3 2e-3+").unwrap();
+        assert_stack(&calc, &["3/1000"]);
+    }
+
+    #[test]
+    fn attached_operator_failure_is_atomic() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("5").unwrap();
+        let before = calc.stack().to_vec();
+
+        assert!(calc.evaluate("0/").is_err());
+        assert_eq!(calc.stack(), before);
+
+        assert!(calc.evaluate("3+ invalid").is_err());
+        assert_eq!(calc.stack(), before);
     }
 
     #[test]
