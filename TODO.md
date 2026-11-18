@@ -49,10 +49,9 @@
 - [x] Verify atomic rollback for extended stack operations
 - [x] Verify pick, roll and depth with valid and invalid indices
 - [x] Verify bounded stack snapshots, undo/redo, failed-line history and redo branching
-- [ ] Verify named memory registers, atomic writes and register-aware undo/redo
+- [x] Verify named memory registers, atomic writes and register-aware undo/redo
 - [ ] Add register deletion and management operations
 - [ ] Add persistent register storage
-
 - [ ] Add integer division and remainder
 - [ ] Add exponentiation and roots
 - [ ] Add factorial, GCD and LCM

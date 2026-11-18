@@ -111,7 +111,6 @@ impl Calculator {
     }
 
     /// Restore the previous successful calculator state.
-
     ///
     /// Returns false if there is nothing left to undo.
     pub fn undo(&mut self) -> bool {
