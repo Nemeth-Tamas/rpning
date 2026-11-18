@@ -159,7 +159,9 @@ For now, only a single trailing operator can be attached to a numeric literal. G
 | `+` | Add Y and X |
 | `-` | Subtract X from Y |
 | `*` | Multiply Y and X |
-| `/` | Divide Y by X |
+| `/` | Divide Y by X exactly, preserving fractions |
+| `div` | Integer quotient Y / X, truncated toward zero |
+| `mod` | Integer remainder of Y divided by X |
 
 ### Stack operations
 

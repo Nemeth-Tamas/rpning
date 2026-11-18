@@ -2,6 +2,9 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
 
+use malachite::Integer;
+use malachite::base::num::arithmetic::traits::DivRem;
+
 use crate::number::{Number, parse_literal};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,6 +27,7 @@ pub enum CalcError {
     },
     InvalidRegisterName(String),
     UnknownRegister(String),
+    IntegerOperandsRequired(String),
 }
 
 impl fmt::Display for CalcError {
@@ -57,6 +61,9 @@ impl fmt::Display for CalcError {
             ),
             Self::UnknownRegister(name) => {
                 write!(f, "unknown register: '{name}'")
+            }
+            Self::IntegerOperandsRequired(operator) => {
+                write!(f, "'{operator}' requires integer operands")
             }
         }
     }
@@ -174,6 +181,30 @@ impl Calculator {
                     };
 
                     working.push(result);
+                }
+
+                "div" | "mod" => {
+                    require_depth(&working, 2, token)?;
+
+                    let x = working.pop().expect("checked stack depth");
+                    let y = working.pop().expect("checked stack depth");
+
+                    if x == 0 {
+                        return Err(CalcError::DivisionByZero);
+                    }
+
+                    let dividend = Integer::try_from(y)
+                        .map_err(|_| CalcError::IntegerOperandsRequired(token.to_owned()))?;
+                    let divisor = Integer::try_from(x)
+                        .map_err(|_| CalcError::IntegerOperandsRequired(token.to_owned()))?;
+
+                    let (quotient, remainder) = dividend.div_rem(divisor);
+
+                    working.push(Number::from(if token == "div" {
+                        quotient
+                    } else {
+                        remainder
+                    }));
                 }
 
                 "dup" => {
@@ -492,6 +523,89 @@ mod tests {
 
         assert!(calc.evaluate("3+ invalid").is_err());
         assert_eq!(calc.stack(), before);
+    }
+
+    #[test]
+    fn integer_division_and_remainder() {
+        let mut calc = Calculator::new();
+
+        let cases = [
+            ("17 5 div", "3"),
+            ("17 5 mod", "2"),
+            ("-17 5 div", "-3"),
+            ("-17 5 mod", "-2"),
+            ("17 -5 div", "-3"),
+            ("17 -5 mod", "2"),
+            ("-17 -5 div", "3"),
+            ("-17 -5 mod", "-2"),
+            ("20 5 div", "4"),
+            ("20 5 mod", "0"),
+            ("0 5 div", "0"),
+            ("0 5 mod", "0"),
+        ];
+
+        for (expression, expected) in cases {
+            calc.evaluate(&format!("clear {expression}")).unwrap();
+            assert_stack(&calc, &[expected]);
+        }
+    }
+
+    #[test]
+    fn integer_division_supports_arbitrary_precision() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("123456789012345678901234567890 10 div")
+            .unwrap();
+        assert_stack(&calc, &["12345678901234567890123456789"]);
+
+        calc.evaluate("clear 123456789012345678901234567891 10 mod")
+            .unwrap();
+        assert_stack(&calc, &["1"]);
+    }
+
+    #[test]
+    fn integer_division_rejects_fractional_operands_atomically() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("42").unwrap();
+        let before = calc.stack().to_vec();
+
+        for expression in ["1/2 3 div", "3 1/2 div", "1.5 2 mod", "3 2.5 mod"] {
+            assert!(matches!(
+                calc.evaluate(expression),
+                Err(CalcError::IntegerOperandsRequired(_))
+            ));
+
+            assert_eq!(calc.stack(), before);
+        }
+    }
+
+    #[test]
+    fn integer_division_rejects_zero_divisor_atomically() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("42").unwrap();
+        let before = calc.stack().to_vec();
+
+        for expression in ["17 0 div", "17 0 mod"] {
+            assert!(matches!(
+                calc.evaluate(expression),
+                Err(CalcError::DivisionByZero)
+            ));
+
+            assert_eq!(calc.stack(), before);
+        }
+    }
+
+    #[test]
+    fn integer_division_preserves_rational_division() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("17 5 /").unwrap();
+        assert_stack(&calc, &["17/5"]);
+
+        calc.evaluate("clear 17 5 div").unwrap();
+        assert_stack(&calc, &["3"]);
     }
 
     #[test]

@@ -160,7 +160,8 @@ fn print_help() {
     println!("  rpn --version             Show version");
     println!();
     println!("Operators:");
-    println!("  +  -  *  /                Arithmetic");
+    println!("  +  -  *  /                Exact rational arithmetic");
+    println!("  div mod                   Integer quotient and remainder");
     println!("  dup drop swap clear       Basic stack operations");
     println!("  over                      Duplicate second stack item");
     println!("  rot                       Rotate top three items left");

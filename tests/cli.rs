@@ -51,6 +51,32 @@ fn cli_formats_terminating_and_recurring_fractions() {
 }
 
 #[test]
+fn cli_supports_integer_division_and_remainder() {
+    let cases = [
+        ("17 5 div", "3"),
+        ("17 5 mod", "2"),
+        ("-17 5 div", "-3"),
+        ("-17 5 mod", "-2"),
+        ("17 5 /", "3.4"),
+    ];
+
+    for (expression, expected) in cases {
+        let output = Command::new(env!("CARGO_BIN_EXE_rpn"))
+            .args(["--eval", expression])
+            .output()
+            .expect("failed to start rpn binary");
+
+        assert!(output.status.success(), "failed expression: {expression}");
+
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout).trim(),
+            expected,
+            "expression: {expression}"
+        );
+    }
+}
+
+#[test]
 fn cli_exits_with_error_on_division_by_zero() {
     let output = Command::new(env!("CARGO_BIN_EXE_rpn"))
         .args(["--eval", "10 0 /"])
