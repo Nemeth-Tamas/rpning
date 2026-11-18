@@ -83,6 +83,39 @@ fn cli_accepts_attached_operator() {
 }
 
 #[test]
+fn stdin_supports_undo_and_redo() {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_rpn"))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("failed to start rpn binary");
+
+    let mut stdin = child.stdin.take().expect("missing child stdin");
+
+    stdin
+        .write_all(b"5\n3+\n:undo\n:undo\n:redo\n:stack\n:redo\n")
+        .expect("failed to write commands");
+
+    drop(stdin);
+
+    let output = child.wait_with_output().expect("failed to read output");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert_eq!(
+        stdout.lines().collect::<Vec<_>>(),
+        ["5", "8", "5", "(empty)", "5", "[0] 5", "8"]
+    );
+}
+
+#[test]
 fn stdin_supports_enter_separated_calculation() {
     let mut child = Command::new(env!("CARGO_BIN_EXE_rpn"))
         .stdin(Stdio::piped())

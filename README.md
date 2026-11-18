@@ -17,6 +17,7 @@ Early functional proof of concept.
 - Addition, subtraction, multiplication and division
 - Basic and extended stack manipulation
 - Atomic evaluation of input lines
+- 128 levels of stack undo/redo history
 - Interactive terminal
 - One-shot CLI evaluation
 - Standard-input support
@@ -193,11 +194,44 @@ Each operation checks that enough operands are available.
 
 A failed input line leaves the original stack unchanged.
 
+### Undo and redo
+
+Interactive mode maintains up to 128 previous stack states.
+
+```text
+> 5
+5
+> 3+
+8
+> 2*
+16
+> :undo
+8
+> :undo
+5
+> :redo
+8
+```
+
+Each successfully completed input line that changes the stack creates one checkpoint.
+
+- `:undo` restores the previous stack.
+- `:redo` restores a previously undone state.
+- Failed operations do not create checkpoints.
+- Calculations that leave the stack unchanged do not create checkpoints.
+- A new stack-changing calculation after undo discards redo history.
+- `clear` can be undone.
+- History is stored in memory for the current session only.
+
+History stores full stack snapshots. A future optimization may reduce memory usage for very large stacks.
+
 ### Interactive commands
 
 | Command | Description |
 |---------|-------------|
 | `:stack` | Display stack, top first |
+| `:undo` | Undo the last stack-changing input line |
+| `:redo` | Reapply the last undone input line |
 | `:help` | Show help |
 | `:quit` | Exit |
 | `:exit` | Exit |

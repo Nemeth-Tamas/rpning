@@ -91,6 +91,28 @@ fn repl() -> io::Result<()> {
                 }
             }
 
+            command @ (":undo" | ":redo") => {
+                let changed = if command == ":undo" {
+                    calc.undo()
+                } else {
+                    calc.redo()
+                };
+
+                if changed {
+                    if let Some(top) = calc.top() {
+                        println!("{}", format_number(top));
+                    } else {
+                        println!("(empty)");
+                    }
+                } else {
+                    eprintln!("error: nothing to {}", &command[1..]);
+
+                    if !interactive {
+                        had_error = true;
+                    }
+                }
+            }
+
             expression => match calc.evaluate(expression) {
                 Ok(()) => {
                     if let Some(top) = calc.top() {
@@ -139,8 +161,9 @@ fn print_help() {
     println!("  depth                     Push current stack depth");
     println!();
     println!("Interactive commands:");
-
     println!("  :stack                    Display stack (X at index 0)");
+    println!("  :undo                     Restore previous stack");
+    println!("  :redo                     Reapply undone calculation");
     println!("  :help                     Show help");
     println!("  :quit                     Exit");
     println!();

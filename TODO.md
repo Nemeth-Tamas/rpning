@@ -38,7 +38,7 @@
 - [ ] Add configurable binary floating-point precision
 - [ ] Add exact-to-approximate conversion rules
 - [ ] Add configurable rounding
-- [ ] Verify exact terminating-decimal formatting and display limits
+- [x] Verify exact terminating-decimal formatting and display limits
 - [ ] Add scientific number formatting
 - [ ] Add independent precision reference tests
 - [ ] Benchmark integer, rational and real arithmetic
@@ -48,7 +48,7 @@
 - [x] Verify over, rot, nip and tuck against unit tests
 - [x] Verify atomic rollback for extended stack operations
 - [x] Verify pick, roll and depth with valid and invalid indices
-- [ ] Add stack snapshots and undo/redo
+- [ ] Verify bounded stack snapshots and undo/redo
 - [ ] Implement stack registers
 - [ ] Add integer division and remainder
 - [ ] Add exponentiation and roots

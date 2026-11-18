@@ -54,9 +54,13 @@ impl fmt::Display for CalcError {
 
 impl Error for CalcError {}
 
+const HISTORY_LIMIT: usize = 128;
+
 #[derive(Debug, Default, Clone)]
 pub struct Calculator {
     stack: Vec<Number>,
+    undo_history: Vec<Vec<Number>>,
+    redo_history: Vec<Vec<Number>>,
 }
 
 impl Calculator {
@@ -77,7 +81,34 @@ impl Calculator {
         self.stack.len()
     }
 
+    /// Restore the previous successful stack state.
+    ///
+    /// Returns false if there is nothing left to undo.
+    pub fn undo(&mut self) -> bool {
+        let Some(previous) = self.undo_history.pop() else {
+            return false;
+        };
+
+        let current = std::mem::replace(&mut self.stack, previous);
+        push_bounded(&mut self.redo_history, current);
+        true
+    }
+
+    /// Restore a stack state previously reverted by undo.
+    ///
+    /// Returns false if there is nothing left to redo.
+    pub fn redo(&mut self) -> bool {
+        let Some(next) = self.redo_history.pop() else {
+            return false;
+        };
+
+        let current = std::mem::replace(&mut self.stack, next);
+        push_bounded(&mut self.undo_history, current);
+        true
+    }
+
     /// Evaluate a complete input line atomically.
+
     ///
     /// If any token fails, none of the line's modifications
     /// are committed to the calculator's stack.
@@ -210,12 +241,27 @@ impl Calculator {
             }
         }
 
-        self.stack = working;
+        if working != self.stack {
+            let previous = std::mem::replace(&mut self.stack, working);
+            push_bounded(&mut self.undo_history, previous);
+            self.redo_history.clear();
+        }
+
         Ok(())
     }
 }
 
+/// Retain only the latest HISTORY_LIMIT stack snapshots.
+fn push_bounded(history: &mut Vec<Vec<Number>>, snapshot: Vec<Number>) {
+    if history.len() == HISTORY_LIMIT {
+        history.remove(0);
+    }
+
+    history.push(snapshot);
+}
+
 /// Split a numeric literal with an attached trailing operator.
+
 ///
 /// Examples:
 /// "3+"    -> ["3", "+"]
@@ -532,6 +578,138 @@ mod tests {
         ));
 
         assert_eq!(calc.depth(), 0);
+    }
+
+    #[test]
+    fn undo_and_redo_restore_completed_lines() {
+        let mut calc = Calculator::new();
+
+        assert!(!calc.undo());
+        assert!(!calc.redo());
+
+        calc.evaluate("5").unwrap();
+        calc.evaluate("3+").unwrap();
+        calc.evaluate("2*").unwrap();
+
+        assert_stack(&calc, &["16"]);
+
+        assert!(calc.undo());
+        assert_stack(&calc, &["8"]);
+
+        assert!(calc.undo());
+        assert_stack(&calc, &["5"]);
+
+        assert!(calc.undo());
+        assert_stack(&calc, &[]);
+
+        assert!(!calc.undo());
+
+        assert!(calc.redo());
+        assert_stack(&calc, &["5"]);
+
+        assert!(calc.redo());
+        assert_stack(&calc, &["8"]);
+
+        assert!(calc.redo());
+        assert_stack(&calc, &["16"]);
+
+        assert!(!calc.redo());
+    }
+
+    #[test]
+    fn clear_can_be_undone() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("10 20 30").unwrap();
+        calc.evaluate("clear").unwrap();
+
+        assert_stack(&calc, &[]);
+
+        assert!(calc.undo());
+        assert_stack(&calc, &["10", "20", "30"]);
+
+        assert!(calc.redo());
+        assert_stack(&calc, &[]);
+    }
+
+    #[test]
+    fn failed_lines_do_not_enter_history() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("5").unwrap();
+        calc.evaluate("3+").unwrap();
+
+        assert!(calc.evaluate("2* invalid").is_err());
+        assert_stack(&calc, &["8"]);
+
+        assert!(calc.undo());
+        assert_stack(&calc, &["5"]);
+
+        assert!(calc.undo());
+        assert_stack(&calc, &[]);
+
+        assert!(!calc.undo());
+    }
+
+    #[test]
+    fn new_calculations_invalidate_redo() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("5").unwrap();
+        calc.evaluate("3+").unwrap();
+
+        assert!(calc.undo());
+        assert_stack(&calc, &["5"]);
+
+        calc.evaluate("2+").unwrap();
+        assert_stack(&calc, &["7"]);
+
+        assert!(!calc.redo());
+    }
+
+    #[test]
+    fn unchanged_lines_preserve_redo_history() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("5").unwrap();
+        calc.evaluate("3+").unwrap();
+
+        assert!(calc.undo());
+        assert_stack(&calc, &["5"]);
+
+        calc.evaluate("").unwrap();
+        calc.evaluate("clear 5").unwrap();
+
+        assert!(calc.evaluate("0/").is_err());
+        assert_stack(&calc, &["5"]);
+
+        assert!(calc.redo());
+        assert_stack(&calc, &["8"]);
+    }
+
+    #[test]
+    fn history_is_bounded_to_128_snapshots() {
+        let mut calc = Calculator::new();
+
+        for _ in 0..140 {
+            calc.evaluate("1").unwrap();
+        }
+
+        assert_eq!(calc.depth(), 140);
+
+        for _ in 0..128 {
+            assert!(calc.undo());
+        }
+
+        assert_eq!(calc.depth(), 12);
+        assert!(!calc.undo());
+
+        for _ in 0..128 {
+            assert!(calc.redo());
+        }
+
+        assert_eq!(calc.depth(), 140);
+        assert!(!calc.redo());
     }
 
     #[test]
