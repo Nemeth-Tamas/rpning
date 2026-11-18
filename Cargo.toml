@@ -1,0 +1,19 @@
+[package]
+name = "rpning"
+version = "0.1.0"
+edition = "2024"
+description = "Fast, exact, programmable PRN calculator"
+
+[lib]
+name = "rpning"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rpn"
+path = "src/main.rs"
+
+[dependencies]
+malachite = { version = "0.14.0", default-features = false, features = [
+    "rationals",
+    "std",
+] }
