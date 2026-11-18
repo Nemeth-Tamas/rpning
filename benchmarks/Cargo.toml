@@ -1,0 +1,22 @@
+[package]
+name = "rpning-backend-bench"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[features]
+default = []
+compare-rug = ["dep:rug"]
+
+[dependencies]
+malachite = { version = "=0.14.0", default-features = false, features = [
+    "rationals",
+    "floats",
+    "std",
+] }
+rug = { version = "=1.30.0", default-features = false, features = [
+    "integer",
+    "rational",
+    "float",
+    "std",
+], optional = true }
