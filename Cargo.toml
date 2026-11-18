@@ -2,7 +2,7 @@
 name = "rpning"
 version = "0.1.0"
 edition = "2024"
-description = "Fast, exact, programmable PRN calculator"
+description = "Fast, exact, programmable RPN calculator"
 
 [lib]
 name = "rpning"

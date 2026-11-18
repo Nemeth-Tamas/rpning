@@ -3,6 +3,7 @@ use std::io::{self, IsTerminal, Write};
 use std::process;
 
 use rpning::Calculator;
+use rpning::number::format_number;
 
 fn main() {
     if let Err(error) = run() {
@@ -45,7 +46,7 @@ fn evaluate_once(expression: &str) -> io::Result<()> {
     calc.evaluate(expression).map_err(io::Error::other)?;
 
     if let Some(top) = calc.top() {
-        println!("{top}");
+        println!("{}", format_number(top));
     }
 
     Ok(())
@@ -85,7 +86,7 @@ fn repl() -> io::Result<()> {
                     println!("(empty)");
                 } else {
                     for (index, value) in calc.stack().iter().rev().enumerate() {
-                        println!("[{index}] {value}");
+                        println!("[{index}] {}", format_number(value));
                     }
                 }
             }
@@ -93,7 +94,7 @@ fn repl() -> io::Result<()> {
             expression => match calc.evaluate(expression) {
                 Ok(()) => {
                     if let Some(top) = calc.top() {
-                        println!("{top}");
+                        println!("{}", format_number(top));
                     } else {
                         println!("(empty)");
                     }

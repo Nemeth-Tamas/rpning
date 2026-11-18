@@ -11,6 +11,8 @@ Early functional proof of concept.
 
 - Exact arbitrary-precision integers and rational numbers
 - Exact decimal and scientific-notation input
+- Exact terminating-decimal output (up to 128 fractional digits)
+- Rational output for recurring or excessively long decimal expansions
 - Numeric literals with attached trailing arithmetic operators
 - Addition, subtraction, multiplication and division
 - Basic and extended stack manipulation
@@ -99,10 +101,30 @@ cargo run -- --eval "0.1 0.2 +"
 Result:
 
 ```text
-3/10
+0.3
 ```
 
-Exact fractional output is used for now. Decimal formatting will be implemented separately.
+### Exact decimal formatting
+
+Rational values with terminating decimal expansions are displayed in decimal notation automatically.
+
+Examples:
+
+| Value | Display |
+|-------|---------|
+| `3/10` | `0.3` |
+| `5/2` | `2.5` |
+| `1/8` | `0.125` |
+| `-5/2` | `-2.5` |
+| `1/3` | `1/3` |
+| `1/6` | `1/6` |
+
+The formatter never rounds or converts through floating-point arithmetic.
+
+Terminating decimals requiring more than 128 fractional digits are displayed as exact fractions instead. Future formatting modes will allow the user to choose between decimal, fraction and scientific representations.
+
+The underlying calculator always retains the exact rational value.
+
 
 ### Calculator-style Enter workflow
 

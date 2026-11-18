@@ -20,7 +20,34 @@ fn cli_preserves_exact_precision() {
         .expect("failed to start rpn binary");
 
     assert!(output.status.success());
-    assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "3/10");
+    assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "0.3");
+}
+
+#[test]
+fn cli_formats_terminating_and_recurring_fractions() {
+    let cases = [
+        ("10 4 /", "2.5"),
+        ("1 8 /", "0.125"),
+        ("1 3 /", "1/3"),
+        ("1 6 /", "1/6"),
+        ("-5 2 /", "-2.5"),
+        ("0.1 0.2 +", "0.3"),
+    ];
+
+    for (expression, expected) in cases {
+        let output = Command::new(env!("CARGO_BIN_EXE_rpn"))
+            .args(["--eval", expression])
+            .output()
+            .expect("failed to start rpn binary");
+
+        assert!(output.status.success(), "failed expression: {expression}");
+
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout).trim(),
+            expected,
+            "expression: {expression}"
+        );
+    }
 }
 
 #[test]
