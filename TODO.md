@@ -23,9 +23,10 @@
 - [x] Verify stack underflow and division-by-zero handling
 - [x] Verify minimal interactive REPL
 - [x] Verify one-shot CLI evaluation
-- [ ] Verify stdin and pipe handling
+- [x] Verify stdin and pipe handling
 - [x] Pass unit and integration tests
-- [ ] Verify attached numeric operators and Enter-separated calculations
+- [x] Verify attached numeric operators and Enter-separated calculations
+
 
 
 ## M2 — Arbitrary-precision foundation
@@ -46,7 +47,7 @@
 
 - [x] Verify over, rot, nip and tuck against unit tests
 - [x] Verify atomic rollback for extended stack operations
-- [ ] Implement pick, roll and depth
+- [ ] Verify pick, roll and depth with valid and invalid indices
 - [ ] Add stack snapshots and undo/redo
 - [ ] Implement stack registers
 - [ ] Add integer division and remainder

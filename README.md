@@ -150,11 +150,24 @@ The stack is described from bottom to top.
 | `rot` | `a b c` | `b c a` |
 | `nip` | `a b` | `b` |
 | `tuck` | `a b` | `b a b` |
+| `pick` | `a b c 1` | `a b c b` |
+| `roll` | `a b c 2` | `b c a` |
+| `depth` | `a b c` | `a b c 3` |
 | `clear` | Any stack | Empty stack |
+
 
 For `rot`, only the top three elements are rotated. Elements farther down the stack are unchanged.
 
+For `pick` and `roll`, the top stack element supplies the zero-based index. Index 0 selects the item immediately below the index itself.
+
+- `pick` copies the selected item to the top.
+- `roll` moves the selected item to the top.
+- `depth` pushes the stack size before the operation.
+
+Indices must be nonnegative integers that fit the platform's `usize` type and refer to an existing stack item. Invalid indices and out-of-range accesses produce errors without changing the original stack.
+
 Each operation checks that enough operands are available.
+
 
 A failed input line leaves the original stack unchanged.
 

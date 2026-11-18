@@ -133,8 +133,12 @@ fn print_help() {
     println!("  rot                       Rotate top three items left");
     println!("  nip                       Remove second stack item");
     println!("  tuck                      Copy top item behind second");
+    println!("  pick                      Copy indexed item (0 = top)");
+    println!("  roll                      Move indexed item to top");
+    println!("  depth                     Push current stack depth");
     println!();
     println!("Interactive commands:");
+
     println!("  :stack                    Display stack (X at index 0)");
     println!("  :help                     Show help");
     println!("  :quit                     Exit");

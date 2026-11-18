@@ -12,6 +12,15 @@ pub enum CalcError {
     },
     DivisionByZero,
     UnknownToken(String),
+    InvalidStackIndex {
+        operator: String,
+        value: String,
+    },
+    StackIndexOutOfRange {
+        operator: String,
+        index: usize,
+        depth: usize,
+    },
 }
 
 impl fmt::Display for CalcError {
@@ -27,6 +36,18 @@ impl fmt::Display for CalcError {
             ),
             Self::DivisionByZero => write!(f, "division by zero"),
             Self::UnknownToken(token) => write!(f, "unknown token: '{token}'"),
+            Self::InvalidStackIndex { operator, value } => write!(
+                f,
+                "invalid index for '{operator}': '{value}' must be a nonnegative integer that fits usize"
+            ),
+            Self::StackIndexOutOfRange {
+                operator,
+                index,
+                depth,
+            } => write!(
+                f,
+                "index {index} out of range for '{operator}': stack has {depth} selectable items"
+            ),
         }
     }
 }
@@ -139,6 +160,45 @@ impl Calculator {
 
                 "clear" => {
                     working.clear();
+                }
+
+                "depth" => {
+                    working.push(Number::from(working.len()));
+                }
+
+                "pick" | "roll" => {
+                    require_depth(&working, 1, token)?;
+
+                    // The top item is an index, not a selectable value.
+                    let raw_index = &working[working.len() - 1];
+                    let index =
+                        usize::try_from(raw_index).map_err(|_| CalcError::InvalidStackIndex {
+                            operator: token.to_owned(),
+                            value: raw_index.to_string(),
+                        })?;
+
+                    let available = working.len() - 1;
+
+                    if index >= available {
+                        return Err(CalcError::StackIndexOutOfRange {
+                            operator: token.to_owned(),
+                            index,
+                            depth: available,
+                        });
+                    }
+
+                    // The index has been validated before modifying the stack.
+                    working.pop();
+
+                    let position = working.len() - 1 - index;
+
+                    let value = if token == "pick" {
+                        working[position].clone()
+                    } else {
+                        working.remove(position)
+                    };
+
+                    working.push(value);
                 }
 
                 _ => {
@@ -368,6 +428,110 @@ mod tests {
         calc.evaluate("3 4 over + nip").unwrap();
 
         assert_stack(&calc, &["7"]);
+    }
+
+    #[test]
+    fn pick_duplicates_the_indexed_item() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("10 20 30 1 pick").unwrap();
+        assert_stack(&calc, &["10", "20", "30", "20"]);
+
+        calc.evaluate("clear 10 20 30 0 pick").unwrap();
+        assert_stack(&calc, &["10", "20", "30", "30"]);
+
+        calc.evaluate("clear 10 20 30 2 pick").unwrap();
+        assert_stack(&calc, &["10", "20", "30", "10"]);
+    }
+
+    #[test]
+    fn roll_moves_the_indexed_item_to_top() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("10 20 30 2 roll").unwrap();
+        assert_stack(&calc, &["20", "30", "10"]);
+
+        calc.evaluate("clear 10 20 30 1 roll").unwrap();
+        assert_stack(&calc, &["10", "30", "20"]);
+
+        calc.evaluate("clear 10 20 30 0 roll").unwrap();
+        assert_stack(&calc, &["10", "20", "30"]);
+    }
+
+    #[test]
+    fn depth_pushes_the_previous_stack_size() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("depth").unwrap();
+        assert_stack(&calc, &["0"]);
+
+        calc.evaluate("clear 10 20 30 depth").unwrap();
+        assert_stack(&calc, &["10", "20", "30", "3"]);
+    }
+
+    #[test]
+    fn indexed_operations_accept_exact_integer_values() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("10 20 30 2/2 pick").unwrap();
+        assert_stack(&calc, &["10", "20", "30", "20"]);
+    }
+
+    #[test]
+    fn indexed_operations_reject_invalid_values_atomically() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("10 20").unwrap();
+        let before = calc.stack().to_vec();
+
+        for expression in [
+            "-1 pick",
+            "1/2 pick",
+            "1.5 roll",
+            "18446744073709551616000000000000000 pick",
+        ] {
+            let error = calc.evaluate(expression).unwrap_err();
+
+            assert!(
+                matches!(error, CalcError::InvalidStackIndex { .. }),
+                "unexpected error for {expression}: {error}"
+            );
+
+            assert_eq!(calc.stack(), before);
+        }
+    }
+
+    #[test]
+    fn indexed_operations_reject_out_of_range_indices() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("10 20").unwrap();
+        let before = calc.stack().to_vec();
+
+        for expression in ["2 pick", "99 roll"] {
+            let error = calc.evaluate(expression).unwrap_err();
+
+            assert!(
+                matches!(error, CalcError::StackIndexOutOfRange { .. }),
+                "unexpected error for {expression}: {error}"
+            );
+
+            assert_eq!(calc.stack(), before);
+        }
+
+        calc.evaluate("clear").unwrap();
+
+        assert!(matches!(
+            calc.evaluate("pick"),
+            Err(CalcError::StackUnderflow { .. })
+        ));
+
+        assert!(matches!(
+            calc.evaluate("0 roll"),
+            Err(CalcError::StackIndexOutOfRange { .. })
+        ));
+
+        assert_eq!(calc.depth(), 0);
     }
 
     #[test]
