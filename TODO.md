@@ -6,9 +6,10 @@
 - [x] Define project scope and architecture
 - [x] Select Windows-first terminal application design
 - [x] Define GitHub and development workflow
-- [ ] Verify Cargo package and modular source layout
-- [ ] Verify initial README and build instructions
+- [x] Verify Cargo package and modular source layout
+- [x] Verify initial README and build instructions
 - [ ] Pass initial formatting, testing and Clippy gates
+- [ ] Verify strict Clippy warnings are resolved
 
 ## M1 — Functional RPN engine
 
@@ -20,7 +21,7 @@
 - [ ] Verify atomic input-line evaluation
 - [ ] Verify stack underflow and division-by-zero handling
 - [ ] Verify minimal interactive REPL
-- [ ] Verify one-shot CLI evaluation
+- [x] Verify one-shot CLI evaluation
 - [ ] Verify stdin and pipe handling
 - [ ] Pass unit and integration tests
 
@@ -40,7 +41,8 @@
 
 ## M3 — Advanced stack and mathematics
 
-- [ ] Implement over, rot, nip and tuck
+- [ ] Verify over, rot, nip and tuck against unit tests
+- [ ] Verify atomic rollback for extended stack operations
 - [ ] Implement pick, roll and depth
 - [ ] Add stack snapshots and undo/redo
 - [ ] Implement stack registers

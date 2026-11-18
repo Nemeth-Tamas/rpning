@@ -1,10 +1,7 @@
 use std::error::Error;
 use std::fmt;
 
-use crate::{
-    CalcError::UnknownToken,
-    number::{Number, parse_literal},
-};
+use crate::number::{Number, parse_literal};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CalcError {
@@ -75,7 +72,7 @@ impl Calculator {
                     let x = working.remove(len - 1);
                     let y = working.remove(len - 2);
 
-                    if token == "/" && x == Number::from(0) {
+                    if token == "/" && x == 0 {
                         return Err(CalcError::DivisionByZero);
                     }
 
@@ -110,6 +107,36 @@ impl Calculator {
                     working.swap(len - 1, len - 2);
                 }
 
+                "over" => {
+                    require_depth(&working, 2, token)?;
+
+                    let len = working.len();
+                    let value = working[len - 2].clone();
+                    working.push(value);
+                }
+
+                "rot" => {
+                    require_depth(&working, 3, token)?;
+
+                    let len = working.len();
+                    working[len - 3..].rotate_left(1);
+                }
+
+                "nip" => {
+                    require_depth(&working, 2, token)?;
+
+                    let len = working.len();
+                    working.remove(len - 2);
+                }
+
+                "tuck" => {
+                    require_depth(&working, 2, token)?;
+
+                    let len = working.len();
+                    let value = working[len - 1].clone();
+                    working.insert(len - 2, value);
+                }
+
                 "clear" => {
                     working.clear();
                 }
@@ -142,7 +169,14 @@ fn require_depth(stack: &[Number], required: usize, operator: &str) -> Result<()
 
 #[cfg(test)]
 mod tests {
-    use super::Calculator;
+    use super::{CalcError, Calculator};
+
+    fn assert_stack(calc: &Calculator, expected: &[&str]) {
+        let actual: Vec<String> = calc.stack().iter().map(ToString::to_string).collect();
+        let expected: Vec<String> = expected.iter().map(ToString::to_string).collect();
+
+        assert_eq!(actual, expected);
+    }
 
     #[test]
     fn basic_arithmetic() {
@@ -198,6 +232,68 @@ mod tests {
     }
 
     #[test]
+    fn over_duplicates_second_item() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("3 4 over").unwrap();
+
+        assert_stack(&calc, &["3", "4", "3"]);
+    }
+
+    #[test]
+    fn rot_rotates_top_three_items() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("1 2 3 rot").unwrap();
+
+        assert_stack(&calc, &["2", "3", "1"]);
+
+        calc.evaluate("rot").unwrap();
+
+        assert_stack(&calc, &["3", "1", "2"]);
+
+        calc.evaluate("rot").unwrap();
+
+        assert_stack(&calc, &["1", "2", "3"]);
+    }
+
+    #[test]
+    fn rot_preserves_items_below_top_three() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("10 20 30 40 rot").unwrap();
+
+        assert_stack(&calc, &["10", "30", "40", "20"]);
+    }
+
+    #[test]
+    fn nip_removes_second_item() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("3 4 nip").unwrap();
+
+        assert_stack(&calc, &["4"]);
+    }
+
+    #[test]
+    fn tuck_duplicates_top_behind_second_item() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("3 4 tuck").unwrap();
+
+        assert_stack(&calc, &["4", "3", "4"]);
+    }
+
+    #[test]
+    fn new_stack_operations_work_together() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("3 4 over + nip").unwrap();
+
+        assert_stack(&calc, &["7"]);
+    }
+
+    #[test]
     fn failed_lines_do_not_mutate_the_stack() {
         let mut calc = Calculator::new();
 
@@ -211,6 +307,9 @@ mod tests {
         assert_eq!(calc.stack(), before);
 
         assert!(calc.evaluate("100 unknown").is_err());
+        assert_eq!(calc.stack(), before);
+
+        assert!(calc.evaluate("2 3 over + unknown").is_err());
         assert_eq!(calc.stack(), before);
     }
 
@@ -229,7 +328,48 @@ mod tests {
         assert!(calc.evaluate("+").is_err());
         assert!(calc.evaluate("dup").is_err());
         assert!(calc.evaluate("swap").is_err());
+        assert!(calc.evaluate("over").is_err());
+        assert!(calc.evaluate("rot").is_err());
+        assert!(calc.evaluate("nip").is_err());
+        assert!(calc.evaluate("tuck").is_err());
 
         assert_eq!(calc.depth(), 0);
+    }
+
+    #[test]
+    fn new_stack_operations_report_correct_underflow() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("7").unwrap();
+
+        let before = calc.stack().to_vec();
+
+        for operator in ["over", "rot", "nip", "tuck"] {
+            let error = calc.evaluate(operator).unwrap_err();
+
+            assert!(matches!(error, CalcError::StackUnderflow { .. }));
+
+            assert_eq!(calc.stack(), before);
+        }
+    }
+
+    #[test]
+    fn rot_requires_three_items() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("1 2").unwrap();
+
+        let error = calc.evaluate("rot").unwrap_err();
+
+        assert_eq!(
+            error,
+            CalcError::StackUnderflow {
+                operator: "rot".to_owned(),
+                required: 3,
+                available: 2,
+            }
+        );
+
+        assert_stack(&calc, &["1", "2"]);
     }
 }

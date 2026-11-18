@@ -12,26 +12,35 @@ Early functional proof of concept.
 - Exact arbitrary-precision integers and rational numbers
 - Exact decimal and scientific-notation input
 - Addition, subtraction, multiplication and division
-- Basic stack manipulation
+- Basic and extended stack manipulation
 - Atomic evaluation of input lines
 - Interactive terminal
 - One-shot CLI evaluation
 - Standard-input support
 - Unit and CLI integration tests
 
-The first build and quality-gate results are pending verification.
+Initial arithmetic CLI smoke tests have been confirmed. Full quality-gate verification for the latest slice is pending.
 
 ## Building
 
 Requires a recent stable Rust toolchain.
 
+For development:
+
+```powershell
+cargo build
+```
+
+For an optimized release executable when needed:
+
 ```powershell
 cargo build --release
 ```
 
-The resulting Windows executable is:
+The Windows executables are:
 
 ```text
+target/debug/rpn.exe
 target/release/rpn.exe
 ```
 
@@ -96,11 +105,44 @@ Exact fractional output is used for now. Decimal formatting will be implemented 
 
 ## Commands
 
-Arithmetic: `+`, `-`, `*`, `/`
+### Arithmetic
 
-Stack: `dup`, `drop`, `swap`, `clear`
+| Command | Description |
+|---------|-------------|
+| `+` | Add Y and X |
+| `-` | Subtract X from Y |
+| `*` | Multiply Y and X |
+| `/` | Divide Y by X |
 
-Interactive: `:stack`, `:help`, `:quit`
+### Stack operations
+
+The stack is described from bottom to top.
+
+| Command | Before | After |
+|---------|--------|-------|
+| `dup` | `a` | `a a` |
+| `drop` | `a b` | `a` |
+| `swap` | `a b` | `b a` |
+| `over` | `a b` | `a b a` |
+| `rot` | `a b c` | `b c a` |
+| `nip` | `a b` | `b` |
+| `tuck` | `a b` | `b a b` |
+| `clear` | Any stack | Empty stack |
+
+For `rot`, only the top three elements are rotated. Elements farther down the stack are unchanged.
+
+Each operation checks that enough operands are available.
+
+A failed input line leaves the original stack unchanged.
+
+### Interactive commands
+
+| Command | Description |
+|---------|-------------|
+| `:stack` | Display stack, top first |
+| `:help` | Show help |
+| `:quit` | Exit |
+| `:exit` | Exit |
 
 ## Architecture
 
@@ -120,12 +162,19 @@ Future development includes arbitrary-precision real functions, stack registers,
 
 ## Development
 
+Routine development gates:
+
 ```powershell
 cargo fmt
 cargo fmt --check
 cargo check
 cargo test
 cargo clippy --all-targets --all-features -- -D warnings
+```
+
+Release builds are reserved for milestones, benchmarking and release preparation:
+
+```powershell
 cargo build --release
 ```
 

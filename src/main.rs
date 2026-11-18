@@ -128,7 +128,11 @@ fn print_help() {
     println!();
     println!("Operators:");
     println!("  +  -  *  /                Arithmetic");
-    println!("  dup drop swap clear       Stack operations");
+    println!("  dup drop swap clear       Basic stack operations");
+    println!("  over                      Duplicate second stack item");
+    println!("  rot                       Rotate top three items left");
+    println!("  nip                       Remove second stack item");
+    println!("  tuck                      Copy top item behind second");
     println!();
     println!("Interactive commands:");
     println!("  :stack                    Display stack (X at index 0)");
