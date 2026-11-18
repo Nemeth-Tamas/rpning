@@ -48,7 +48,7 @@
 - [x] Verify over, rot, nip and tuck against unit tests
 - [x] Verify atomic rollback for extended stack operations
 - [x] Verify pick, roll and depth with valid and invalid indices
-- [ ] Verify bounded stack snapshots and undo/redo
+- [ ] Verify bounded stack snapshots, undo/redo, failed-line history and redo branching
 - [ ] Implement stack registers
 - [ ] Add integer division and remainder
 - [ ] Add exponentiation and roots

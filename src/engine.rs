@@ -108,7 +108,6 @@ impl Calculator {
     }
 
     /// Evaluate a complete input line atomically.
-
     ///
     /// If any token fails, none of the line's modifications
     /// are committed to the calculator's stack.
@@ -261,7 +260,6 @@ fn push_bounded(history: &mut Vec<Vec<Number>>, snapshot: Vec<Number>) {
 }
 
 /// Split a numeric literal with an attached trailing operator.
-
 ///
 /// Examples:
 /// "3+"    -> ["3", "+"]
