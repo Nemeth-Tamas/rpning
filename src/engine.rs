@@ -290,6 +290,19 @@ impl Calculator {
                     working.push(value);
                 }
 
+                _ if token.starts_with("del:") => {
+                    let name = &token[4..];
+                    validate_register_name(name)?;
+
+                    if working_registers.remove(name).is_none() {
+                        return Err(CalcError::UnknownRegister(name.to_owned()));
+                    }
+                }
+
+                "clearmem" => {
+                    working_registers.clear();
+                }
+
                 _ => {
                     let value = parse_literal(token)
                         .ok_or_else(|| CalcError::UnknownToken(token.to_owned()))?;
@@ -763,6 +776,91 @@ mod tests {
 
         assert!(calc.evaluate("0/").is_err());
         assert_stack(&calc, &["5"]);
+
+        assert!(calc.redo());
+        assert_stack(&calc, &["8"]);
+    }
+
+    #[test]
+    fn deleting_register_preserves_stack_and_supports_history() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("10 sto:net 20 sto:tax").unwrap();
+        let before = calc.stack().to_vec();
+
+        calc.evaluate("del:net").unwrap();
+
+        assert_eq!(calc.stack(), before);
+        assert!(calc.register("net").is_none());
+        assert_eq!(calc.register("tax").unwrap().to_string(), "20");
+
+        assert!(calc.undo());
+        assert_eq!(calc.stack(), before);
+        assert_eq!(calc.register("net").unwrap().to_string(), "10");
+
+        assert!(calc.redo());
+        assert_eq!(calc.stack(), before);
+        assert!(calc.register("net").is_none());
+    }
+
+    #[test]
+    fn clearing_memory_preserves_stack_and_supports_history() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("1 3 / sto:third 42 sto:answer").unwrap();
+        let before = calc.stack().to_vec();
+
+        calc.evaluate("clearmem").unwrap();
+
+        assert_eq!(calc.stack(), before);
+        assert_eq!(calc.registers().count(), 0);
+
+        assert!(calc.undo());
+        assert_eq!(calc.stack(), before);
+        assert_eq!(calc.register("third").unwrap().to_string(), "1/3");
+        assert_eq!(calc.register("answer").unwrap().to_string(), "42");
+
+        assert!(calc.redo());
+        assert_eq!(calc.registers().count(), 0);
+    }
+
+    #[test]
+    fn failed_register_deletion_and_clear_are_atomic() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("10 sto:saved").unwrap();
+        let before = calc.stack().to_vec();
+
+        assert!(matches!(
+            calc.evaluate("del:missing"),
+            Err(CalcError::UnknownRegister(_))
+        ));
+
+        for expression in ["del:", "del:2bad"] {
+            assert!(matches!(
+                calc.evaluate(expression),
+                Err(CalcError::InvalidRegisterName(_))
+            ));
+        }
+
+        assert!(calc.evaluate("del:saved invalid").is_err());
+        assert!(calc.evaluate("clearmem invalid").is_err());
+
+        assert_eq!(calc.stack(), before);
+        assert_eq!(calc.register("saved").unwrap().to_string(), "10");
+    }
+
+    #[test]
+    fn clearing_empty_memory_does_not_invalidate_redo() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("5").unwrap();
+        calc.evaluate("3+").unwrap();
+
+        assert!(calc.undo());
+        assert_stack(&calc, &["5"]);
+
+        calc.evaluate("clearmem").unwrap();
 
         assert!(calc.redo());
         assert_stack(&calc, &["8"]);

@@ -50,7 +50,7 @@
 - [x] Verify pick, roll and depth with valid and invalid indices
 - [x] Verify bounded stack snapshots, undo/redo, failed-line history and redo branching
 - [x] Verify named memory registers, atomic writes and register-aware undo/redo
-- [ ] Add register deletion and management operations
+- [ ] Verify register deletion, clearing, atomic rollback and undo/redo
 - [ ] Add persistent register storage
 - [ ] Add integer division and remainder
 - [ ] Add exponentiation and roots

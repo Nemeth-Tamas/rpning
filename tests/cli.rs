@@ -83,6 +83,56 @@ fn cli_accepts_attached_operator() {
 }
 
 #[test]
+fn stdin_supports_register_deletion_and_clear() {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_rpn"))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("failed to start rpn binary");
+
+    let mut stdin = child.stdin.take().expect("missing child stdin");
+
+    stdin
+        .write_all(
+            b"10 sto:net\n20 sto:tax\n:registers\ndel:net\n:registers\n:undo\n:registers\nclearmem\n:registers\n:undo\n:registers\n",
+        )
+        .expect("failed to write commands");
+
+    drop(stdin);
+
+    let output = child.wait_with_output().expect("failed to read output");
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert_eq!(
+        stdout.lines().collect::<Vec<_>>(),
+        [
+            "10",
+            "20",
+            "net = 10",
+            "tax = 20",
+            "20",
+            "tax = 20",
+            "20",
+            "net = 10",
+            "tax = 20",
+            "20",
+            "(no registers)",
+            "20",
+            "net = 10",
+            "tax = 20",
+        ]
+    );
+}
+
+#[test]
 fn stdin_supports_named_registers_and_history() {
     let mut child = Command::new(env!("CARGO_BIN_EXE_rpn"))
         .stdin(Stdio::piped())

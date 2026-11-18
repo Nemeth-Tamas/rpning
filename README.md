@@ -201,9 +201,12 @@ The calculator supports case-sensitive named registers for storing exact numeric
 
 - `sto:name` stores the top stack value in the named register without consuming it.
 - `rcl:name` pushes a copy of the register's value onto the stack.
+- `del:name` deletes an existing named register without changing the stack.
+- `clearmem` deletes all named registers without changing the stack.
 - `:registers` lists all currently defined registers alphabetically.
 - `clear` clears the stack but preserves registers.
 - Undefined registers and invalid names produce explicit errors.
+- Deletion and clearing are atomic and can be undone or redone.
 
 Register identifiers may contain 1-64 ASCII letters, digits and underscores. They must begin with a letter or underscore.
 

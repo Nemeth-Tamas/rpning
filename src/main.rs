@@ -171,6 +171,8 @@ fn print_help() {
     println!("  depth                     Push current stack depth");
     println!("  sto:name                  Store X without consuming it");
     println!("  rcl:name                  Push a stored register value");
+    println!("  del:name                  Delete a named register");
+    println!("  clearmem                  Delete all named registers");
     println!();
     println!("Interactive commands:");
     println!("  :stack                    Display stack (X at index 0)");
