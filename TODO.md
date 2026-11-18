@@ -48,8 +48,11 @@
 - [x] Verify over, rot, nip and tuck against unit tests
 - [x] Verify atomic rollback for extended stack operations
 - [x] Verify pick, roll and depth with valid and invalid indices
-- [ ] Verify bounded stack snapshots, undo/redo, failed-line history and redo branching
-- [ ] Implement stack registers
+- [x] Verify bounded stack snapshots, undo/redo, failed-line history and redo branching
+- [ ] Verify named memory registers, atomic writes and register-aware undo/redo
+- [ ] Add register deletion and management operations
+- [ ] Add persistent register storage
+
 - [ ] Add integer division and remainder
 - [ ] Add exponentiation and roots
 - [ ] Add factorial, GCD and LCM

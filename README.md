@@ -17,7 +17,8 @@ Early functional proof of concept.
 - Addition, subtraction, multiplication and division
 - Basic and extended stack manipulation
 - Atomic evaluation of input lines
-- 128 levels of stack undo/redo history
+- 128 levels of stack and register undo/redo history
+- Named memory registers with exact values
 - Interactive terminal
 - One-shot CLI evaluation
 - Standard-input support
@@ -194,9 +195,38 @@ Each operation checks that enough operands are available.
 
 A failed input line leaves the original stack unchanged.
 
+### Named memory registers
+
+The calculator supports case-sensitive named registers for storing exact numeric values.
+
+- `sto:name` stores the top stack value in the named register without consuming it.
+- `rcl:name` pushes a copy of the register's value onto the stack.
+- `:registers` lists all currently defined registers alphabetically.
+- `clear` clears the stack but preserves registers.
+- Undefined registers and invalid names produce explicit errors.
+
+Register identifiers may contain 1-64 ASCII letters, digits and underscores. They must begin with a letter or underscore.
+
+Example:
+
+```text
+> 10000 sto:net
+10000
+> clear
+(empty)
+> rcl:net 1.27 *
+12700
+> :registers
+net = 10000
+```
+
+Register changes participate in atomic input-line evaluation and undo/redo. A failed line cannot partially modify registers.
+
+Registers are session-local and are not yet saved to disk.
+
 ### Undo and redo
 
-Interactive mode maintains up to 128 previous stack states.
+Interactive mode maintains up to 128 previous calculator states, including both stack values and memory registers.
 
 ```text
 > 5
@@ -213,9 +243,9 @@ Interactive mode maintains up to 128 previous stack states.
 8
 ```
 
-Each successfully completed input line that changes the stack creates one checkpoint.
+Each successfully completed input line that changes the stack or registers creates one checkpoint.
 
-- `:undo` restores the previous stack.
+- `:undo` restores the previous stack and register state.
 - `:redo` restores a previously undone state.
 - Failed operations do not create checkpoints.
 - Calculations that leave the stack unchanged do not create checkpoints.
@@ -230,7 +260,8 @@ History stores full stack snapshots. A future optimization may reduce memory usa
 | Command | Description |
 |---------|-------------|
 | `:stack` | Display stack, top first |
-| `:undo` | Undo the last stack-changing input line |
+| `:registers` | List stored register values |
+| `:undo` | Undo the last state-changing input line |
 | `:redo` | Reapply the last undone input line |
 | `:help` | Show help |
 | `:quit` | Exit |

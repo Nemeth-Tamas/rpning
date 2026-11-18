@@ -91,6 +91,16 @@ fn repl() -> io::Result<()> {
                 }
             }
 
+            ":registers" => {
+                if calc.registers().next().is_none() {
+                    println!("(no registers)");
+                } else {
+                    for (name, value) in calc.registers() {
+                        println!("{name} = {}", format_number(value));
+                    }
+                }
+            }
+
             command @ (":undo" | ":redo") => {
                 let changed = if command == ":undo" {
                     calc.undo()
@@ -159,9 +169,12 @@ fn print_help() {
     println!("  pick                      Copy indexed item (0 = top)");
     println!("  roll                      Move indexed item to top");
     println!("  depth                     Push current stack depth");
+    println!("  sto:name                  Store X without consuming it");
+    println!("  rcl:name                  Push a stored register value");
     println!();
     println!("Interactive commands:");
     println!("  :stack                    Display stack (X at index 0)");
+    println!("  :registers                List named memory registers");
     println!("  :undo                     Restore previous stack");
     println!("  :redo                     Reapply undone calculation");
     println!("  :help                     Show help");

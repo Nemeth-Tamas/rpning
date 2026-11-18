@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
 
@@ -21,6 +22,8 @@ pub enum CalcError {
         index: usize,
         depth: usize,
     },
+    InvalidRegisterName(String),
+    UnknownRegister(String),
 }
 
 impl fmt::Display for CalcError {
@@ -48,6 +51,13 @@ impl fmt::Display for CalcError {
                 f,
                 "index {index} out of range for '{operator}': stack has {depth} selectable items"
             ),
+            Self::InvalidRegisterName(name) => write!(
+                f,
+                "invalid register name '{name}': use 1-64 ASCII letters, digits or underscores, starting with a letter or underscore"
+            ),
+            Self::UnknownRegister(name) => {
+                write!(f, "unknown register: '{name}'")
+            }
         }
     }
 }
@@ -56,11 +66,18 @@ impl Error for CalcError {}
 
 const HISTORY_LIMIT: usize = 128;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Snapshot {
+    stack: Vec<Number>,
+    registers: BTreeMap<String, Number>,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct Calculator {
     stack: Vec<Number>,
-    undo_history: Vec<Vec<Number>>,
-    redo_history: Vec<Vec<Number>>,
+    registers: BTreeMap<String, Number>,
+    undo_history: Vec<Snapshot>,
+    redo_history: Vec<Snapshot>,
 }
 
 impl Calculator {
@@ -81,7 +98,20 @@ impl Calculator {
         self.stack.len()
     }
 
-    /// Restore the previous successful stack state.
+    /// Inspect one named register without modifying the stack.
+    pub fn register(&self, name: &str) -> Option<&Number> {
+        self.registers.get(name)
+    }
+
+    /// Iterate over registers in alphabetical order.
+    pub fn registers(&self) -> impl Iterator<Item = (&str, &Number)> {
+        self.registers
+            .iter()
+            .map(|(name, value)| (name.as_str(), value))
+    }
+
+    /// Restore the previous successful calculator state.
+
     ///
     /// Returns false if there is nothing left to undo.
     pub fn undo(&mut self) -> bool {
@@ -89,7 +119,11 @@ impl Calculator {
             return false;
         };
 
-        let current = std::mem::replace(&mut self.stack, previous);
+        let current = Snapshot {
+            stack: std::mem::replace(&mut self.stack, previous.stack),
+            registers: std::mem::replace(&mut self.registers, previous.registers),
+        };
+
         push_bounded(&mut self.redo_history, current);
         true
     }
@@ -102,17 +136,22 @@ impl Calculator {
             return false;
         };
 
-        let current = std::mem::replace(&mut self.stack, next);
+        let current = Snapshot {
+            stack: std::mem::replace(&mut self.stack, next.stack),
+            registers: std::mem::replace(&mut self.registers, next.registers),
+        };
+
         push_bounded(&mut self.undo_history, current);
         true
     }
 
     /// Evaluate a complete input line atomically.
     ///
-    /// If any token fails, none of the line's modifications
-    /// are committed to the calculator's stack.
+    /// If any token fails, neither stack nor register modifications
+    /// are committed to the calculator.
     pub fn evaluate(&mut self, input: &str) -> Result<(), CalcError> {
         let mut working = self.stack.clone();
+        let mut working_registers = self.registers.clone();
 
         for token in tokenize(input) {
             match token {
@@ -231,6 +270,27 @@ impl Calculator {
                     working.push(value);
                 }
 
+                _ if token.starts_with("sto:") => {
+                    let name = &token[4..];
+                    validate_register_name(name)?;
+                    require_depth(&working, 1, token)?;
+
+                    let value = working[working.len() - 1].clone();
+                    working_registers.insert(name.to_owned(), value);
+                }
+
+                _ if token.starts_with("rcl:") => {
+                    let name = &token[4..];
+                    validate_register_name(name)?;
+
+                    let value = working_registers
+                        .get(name)
+                        .ok_or_else(|| CalcError::UnknownRegister(name.to_owned()))?
+                        .clone();
+
+                    working.push(value);
+                }
+
                 _ => {
                     let value = parse_literal(token)
                         .ok_or_else(|| CalcError::UnknownToken(token.to_owned()))?;
@@ -240,8 +300,12 @@ impl Calculator {
             }
         }
 
-        if working != self.stack {
-            let previous = std::mem::replace(&mut self.stack, working);
+        if working != self.stack || working_registers != self.registers {
+            let previous = Snapshot {
+                stack: std::mem::replace(&mut self.stack, working),
+                registers: std::mem::replace(&mut self.registers, working_registers),
+            };
+
             push_bounded(&mut self.undo_history, previous);
             self.redo_history.clear();
         }
@@ -250,13 +314,33 @@ impl Calculator {
     }
 }
 
-/// Retain only the latest HISTORY_LIMIT stack snapshots.
-fn push_bounded(history: &mut Vec<Vec<Number>>, snapshot: Vec<Number>) {
+/// Retain only the latest HISTORY_LIMIT calculator snapshots.
+fn push_bounded(history: &mut Vec<Snapshot>, snapshot: Snapshot) {
     if history.len() == HISTORY_LIMIT {
         history.remove(0);
     }
 
     history.push(snapshot);
+}
+
+/// Validate register identifiers used in RPN instructions.
+fn validate_register_name(name: &str) -> Result<(), CalcError> {
+    let valid = !name.is_empty()
+        && name.len() <= 64
+        && name
+            .bytes()
+            .next()
+            .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
+        && name
+            .bytes()
+            .skip(1)
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_');
+
+    if valid {
+        Ok(())
+    } else {
+        Err(CalcError::InvalidRegisterName(name.to_owned()))
+    }
 }
 
 /// Split a numeric literal with an attached trailing operator.
@@ -708,6 +792,177 @@ mod tests {
 
         assert_eq!(calc.depth(), 140);
         assert!(!calc.redo());
+    }
+
+    #[test]
+    fn registers_store_and_recall_exact_values() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("1 3 / sto:third").unwrap();
+        assert_stack(&calc, &["1/3"]);
+        assert_eq!(calc.register("third").unwrap().to_string(), "1/3");
+
+        calc.evaluate("clear rcl:third 3 *").unwrap();
+        assert_stack(&calc, &["1"]);
+
+        calc.evaluate("42 sto:Answer").unwrap();
+        assert!(calc.register("answer").is_none());
+        assert_eq!(calc.register("Answer").unwrap().to_string(), "42");
+    }
+
+    #[test]
+    fn registers_are_visible_within_the_same_input_line() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("10 sto:a clear rcl:a 2 *").unwrap();
+
+        assert_stack(&calc, &["20"]);
+        assert_eq!(calc.register("a").unwrap().to_string(), "10");
+    }
+
+    #[test]
+    fn registers_are_sorted_by_name() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("1 sto:z 2 sto:a 3 sto:m").unwrap();
+
+        let names: Vec<&str> = calc.registers().map(|(name, _)| name).collect();
+
+        assert_eq!(names, ["a", "m", "z"]);
+    }
+
+    #[test]
+    fn register_only_changes_can_be_undone_and_redone() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("10").unwrap();
+        calc.evaluate("sto:memory").unwrap();
+
+        assert_stack(&calc, &["10"]);
+        assert_eq!(calc.register("memory").unwrap().to_string(), "10");
+
+        assert!(calc.undo());
+        assert_stack(&calc, &["10"]);
+        assert!(calc.register("memory").is_none());
+
+        assert!(calc.redo());
+        assert_stack(&calc, &["10"]);
+        assert_eq!(calc.register("memory").unwrap().to_string(), "10");
+    }
+
+    #[test]
+    fn undo_restores_overwritten_registers() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("10 sto:memory").unwrap();
+        calc.evaluate("20 sto:memory").unwrap();
+
+        assert_eq!(calc.register("memory").unwrap().to_string(), "20");
+
+        assert!(calc.undo());
+        assert_stack(&calc, &["10"]);
+        assert_eq!(calc.register("memory").unwrap().to_string(), "10");
+
+        assert!(calc.redo());
+        assert_stack(&calc, &["10", "20"]);
+        assert_eq!(calc.register("memory").unwrap().to_string(), "20");
+    }
+
+    #[test]
+    fn register_writes_are_atomic_on_failure() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("5 sto:saved").unwrap();
+        let before = calc.stack().to_vec();
+
+        assert!(calc.evaluate("20 sto:saved rcl:missing").is_err());
+        assert!(calc.evaluate("99 sto:temporary invalid").is_err());
+
+        assert_eq!(calc.stack(), before);
+        assert_eq!(calc.register("saved").unwrap().to_string(), "5");
+        assert!(calc.register("temporary").is_none());
+
+        assert!(calc.undo());
+        assert_stack(&calc, &[]);
+        assert!(calc.register("saved").is_none());
+    }
+
+    #[test]
+    fn registers_reject_invalid_identifiers() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("10").unwrap();
+
+        for expression in [
+            "sto:",
+            "rcl:",
+            "sto:2bad",
+            "rcl:bad-name",
+            "sto:bad.name",
+            "sto:é",
+            "sto:abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklm",
+        ] {
+            assert!(
+                matches!(
+                    calc.evaluate(expression),
+                    Err(CalcError::InvalidRegisterName(_))
+                ),
+                "expression: {expression}"
+            );
+        }
+
+        assert_stack(&calc, &["10"]);
+        assert_eq!(calc.registers().count(), 0);
+    }
+
+    #[test]
+    fn missing_register_and_empty_stack_are_errors() {
+        let mut calc = Calculator::new();
+
+        assert!(matches!(
+            calc.evaluate("sto:answer"),
+            Err(CalcError::StackUnderflow { .. })
+        ));
+
+        assert!(matches!(
+            calc.evaluate("rcl:answer"),
+            Err(CalcError::UnknownRegister(_))
+        ));
+
+        assert_eq!(calc.depth(), 0);
+    }
+
+    #[test]
+    fn register_changes_invalidate_redo() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("5").unwrap();
+        calc.evaluate("3+").unwrap();
+
+        assert!(calc.undo());
+        assert_stack(&calc, &["5"]);
+
+        calc.evaluate("sto:new").unwrap();
+
+        assert!(!calc.redo());
+        assert_eq!(calc.register("new").unwrap().to_string(), "5");
+    }
+
+    #[test]
+    fn unchanged_register_writes_preserve_redo() {
+        let mut calc = Calculator::new();
+
+        calc.evaluate("5 sto:answer").unwrap();
+        calc.evaluate("3+ sto:answer").unwrap();
+
+        assert!(calc.undo());
+        assert_eq!(calc.register("answer").unwrap().to_string(), "5");
+
+        calc.evaluate("sto:answer").unwrap();
+
+        assert!(calc.redo());
+        assert_stack(&calc, &["8"]);
+        assert_eq!(calc.register("answer").unwrap().to_string(), "8");
     }
 
     #[test]
