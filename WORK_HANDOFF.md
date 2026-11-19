@@ -1,5 +1,27 @@
 # rpning — Comprehensive Work-mode handoff
 
+## Initial release implementation (2026-11-19)
+
+Current code includes the M4 compiled macro language, all M5 workflow features
+and all M6 numpad features. The user's two diagnostic files verified the
+CONNECT IT NumCALC hardware; its reported NumLock flag remains false, so nav
+layers follow actual key events. See docs/LANGUAGE.md, docs/WORKFLOW.md and
+docs/KEYPAD.md. Settings/macros persist in interactive sessions; pipes and
+one-shot/script evaluation start fresh. No new runtime dependencies were added.
+
+Windows validation covers 123 Rust tests, strict Clippy, 1140 exact Fraction
+rounding checks, 477 Decimal function comparisons and five isolated console
+sessions (including keypad layers, line editing, history and completion).
+Startup, stack/macro throughput and sampled memory were measured before/after
+removing redundant VM transaction-buffer clones; see docs/RELEASE_PERFORMANCE.md.
+
+Three-platform GitHub Actions builds validate Windows/Linux/macOS and publish
+binaries/checksums only after all gates pass for a release commit. Check the
+actual workflow/release state before claiming a published release. The M2
+numeric abstraction/small-integer optimization and M7 extended mathematical
+environment remain open in the original TODO; do not rename or move tasks.
+The snapshots below are historical and do not describe current feature status.
+
 ## Current continuation status (2026-11-19)
 
 The snapshot below this section is historical. The test literal fix was

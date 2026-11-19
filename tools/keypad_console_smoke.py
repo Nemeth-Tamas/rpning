@@ -121,12 +121,16 @@ def worker(executable: Path) -> None:
 
         enter = record(0x0d, "\r", flags=0)
         exercise("", text(": square dup * ;") + [enter]
+                 + text("13") + [record(0x25, flags=0x100)] + text("2")
+                 + [record(0x23, flags=0x100), record(0x08, "\b"),
+                    record(0x24, flags=0x100), record(0x2e, flags=0x100), enter]
                  + text("9 squa") + [record(0x09, "\t", flags=0), enter]
                  + [record(0x26, flags=0x100), enter]
                  + text("square") + [record(0x52, "\x12", flags=0x08), enter]
+                 + text(":stack") + [enter]
                  + text(":history square") + [enter]
                  + text(":quit") + [enter],
-                 ["81", "9 square", ": square dup * ;"])
+                 ["[0] 81", "[2] 81", "[3] 2", "9 square", ": square dup * ;"])
     print("PASS: 5 isolated Windows console sessions; keypad layers, line editing, history, completion and mode restoration")
 
 

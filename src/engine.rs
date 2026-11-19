@@ -311,8 +311,20 @@ impl Calculator {
     }
 
     pub(crate) fn evaluate_plain(&mut self, input: &str) -> Result<(), CalcError> {
-        let mut working = self.stack.clone();
-        let mut working_registers = self.registers.clone();
+        // A VM invocation already owns a disposable outer transaction. Move
+        // its working buffers through primitive instructions instead of
+        // cloning the entire stack/register map on every instruction. Errors
+        // discard that outer transaction before any user state is committed.
+        let mut working = if self.transient {
+            std::mem::take(&mut self.stack)
+        } else {
+            self.stack.clone()
+        };
+        let mut working_registers = if self.transient {
+            std::mem::take(&mut self.registers)
+        } else {
+            self.registers.clone()
+        };
 
         for token in tokenize(input) {
             match token {
@@ -571,6 +583,11 @@ impl Calculator {
             }
         }
 
+        if self.transient {
+            self.stack = working;
+            self.registers = working_registers;
+            return Ok(());
+        }
         if working != self.stack || working_registers != self.registers {
             let previous = Snapshot {
                 stack: std::mem::replace(&mut self.stack, working),
@@ -578,10 +595,8 @@ impl Calculator {
                 macros: self.macros.clone(),
             };
 
-            if !self.transient {
-                push_bounded(&mut self.undo_history, previous);
-                self.redo_history.clear();
-            }
+            push_bounded(&mut self.undo_history, previous);
+            self.redo_history.clear();
         }
 
         Ok(())

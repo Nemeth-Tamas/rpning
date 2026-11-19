@@ -112,3 +112,22 @@ fn execution_limits_stop_recursion_and_infinite_loops_atomically() {
         assert!(calc.macros().is_empty());
     }
 }
+
+#[test]
+fn failed_large_compiled_transaction_preserves_registers_stack_and_redo() {
+    let mut calc = Calculator::new();
+    calc.evaluate("1000 times 1 end 7 sto:saved").unwrap();
+    calc.clear_history();
+    let original = stack(&calc);
+    calc.evaluate("1+").unwrap();
+    calc.undo();
+    assert!(
+        calc.evaluate(": mutate 99 sto:saved 10 times dup + end ; mutate 0 /")
+            .is_err()
+    );
+    assert_eq!(stack(&calc), original);
+    assert_eq!(calc.register("saved").unwrap().to_string(), "7");
+    assert!(calc.macros().is_empty());
+    assert!(calc.redo());
+    assert_eq!(calc.top().unwrap().to_string(), "8");
+}
