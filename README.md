@@ -7,7 +7,7 @@ The goal is to combine traditional stack-based calculation with arbitrary-precis
 
 ## Current implementation
 
-Early functional proof of concept.
+Initial release implementation, with the extended roadmap retained in TODO.md.
 
 - Exact arbitrary-precision integers and rational numbers
 - Exact decimal and scientific-notation input
@@ -25,6 +25,8 @@ Early functional proof of concept.
 - Opt-in Windows console keypad input and key-event diagnostics
 - Compiled macros, namespaces, aliases, conditions, loops and local variables
 - Macro persistence/import/export, instruction tracing and script files
+- Saved settings, command history/search, Windows line editing and completion
+- Configurable keypad layers, key bindings and programmable macro shortcuts
 - Unit and CLI integration tests
 
 Windows quality gates, independent numerical oracles and synthetic console
@@ -170,8 +172,10 @@ number; Enter with no pending number duplicates X. Backspace edits the pending
 entry. Esc exits; `S` changes sign, `C` clears the stack, Tab swaps, and
 Ctrl+Z/Ctrl+Y undo/redo. An enhanced navigation Delete cancels the pending entry.
 
-This first version reads the active console, has no per-device separation, and
-does not use global keyboard hooks. Mappings/layers/macros remain future work.
+This version reads the active console, has no per-device separation, and
+does not use global keyboard hooks. Navigation events select configurable
+shortcuts; F2 toggles an alternate digit-key layer. Bind a key with
+`:bind nav home math.square` and inspect mappings with `:bindings`.
 It requires interactive stdin and stdout; ordinary REPL/pipes/`--eval` retain
 their existing behavior. See [the keypad guide](docs/KEYPAD.md) for exact entry,
 error, undo, display and hardware-test behavior.
@@ -340,7 +344,7 @@ binary arithmetic, use `:mode binary`, `:precision 53` and
 of the four basic arithmetic operators to a dyadic rational with the specified
 significant-bit precision. It has an unbounded exponent range and is **not**
 IEEE 754 floating point (no infinities, NaNs or signed zeros). `approx` rounds
-only the top value even in exact mode. Settings are session-local and are not
+only the top value even in exact mode. Interactive settings are saved and are not
 part of undo/redo history. `:display scientific` selects lossless
 scientific notation for terminating decimal values; repeating values retain
 exact fractional output. `:settings` shows the active controls.
@@ -367,6 +371,17 @@ atomically. `sin`, `cos` and `tan` accept radians; `rad` converts degrees to
 radians and `deg` converts radians to degrees.
 
 See `docs/M2-M3-REAL-MATH.md` for accuracy, limits, examples and oracle tests.
+
+## Saved workflow
+
+Windows REPL supports Up/Down history, Ctrl+R reverse search and Tab completion.
+`:history [TEXT]` and `:complete PREFIX` work in all terminals. Settings and
+macros persist automatically in interactive sessions; history saves on exit.
+`:settings-save`/`:settings-load` explicitly persist numeric settings, bindings
+and command shortcuts. Pipes, scripts and `--eval` begin with fresh defaults.
+Use `:display auto|scientific|fraction|fixed:N` to choose presentation; `~`
+marks rounded fixed output without changing the exact number. See the full
+[workflow guide](docs/WORKFLOW.md) for files, keys, layers and examples.
 
 ## Roadmap
 

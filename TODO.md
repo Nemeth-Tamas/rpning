@@ -77,14 +77,14 @@
 
 ## M5 — Terminal workflow
 
-- [ ] Add persistent command history
-- [ ] Add history search
-- [ ] Add tab completion
-- [ ] Add configurable number display
-- [ ] Add persistent application settings
+- [x] Add persistent command history
+- [x] Add history search
+- [x] Add tab completion
+- [x] Add configurable number display
+- [x] Add persistent application settings
 - [x] Add script-file execution
 - [x] Add helpful built-in documentation
-- [ ] Add programmable command shortcuts
+- [x] Add programmable command shortcuts
 
 ## M6 — Physical numpad mode
 
@@ -95,9 +95,9 @@
 - [x] Implement immediate operator execution
 - [x] Define Enter and pending-number behavior
 - [x] Implement backspace and decimal entry
-- [ ] Add configurable key mappings
-- [ ] Add alternate keypad layers
-- [ ] Add programmable macro shortcuts
+- [x] Add configurable key mappings
+- [x] Add alternate keypad layers
+- [x] Add programmable macro shortcuts
 - [x] Verify normal terminal mode remains unaffected
 
 ## M7 — Extended mathematical environment
@@ -118,12 +118,12 @@
 
 ## M8 — Performance and releases
 
-- [ ] Establish startup benchmarks
-- [ ] Benchmark stack-operation throughput
+- [x] Establish startup benchmarks
+- [x] Benchmark stack-operation throughput
 - [ ] Optimize atomic execution overhead
-- [ ] Benchmark compiled macro execution
-- [ ] Profile memory usage
-- [ ] Verify Windows compatibility
+- [x] Benchmark compiled macro execution
+- [x] Profile memory usage
+- [x] Verify Windows compatibility
 - [ ] Verify Linux compatibility
 - [ ] Verify macOS compatibility
 - [ ] Add cross-platform release builds

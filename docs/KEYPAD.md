@@ -74,8 +74,10 @@ because `2 *` was a single transaction. A failed `0 /` preserves both the
 stack and pending `0`; Backspace then `2 /` retries with a corrected operand.
 Failed operations preserve registers and redo history. Key-up records do not
 execute actions; repeat counts are honored. Ctrl/Alt combinations are ignored
-except the documented Ctrl shortcuts. This release has fixed mappings; user
-configuration, alternate layers and macro shortcuts remain unimplemented.
+except the documented Ctrl shortcuts. Mappings, alternate layers and macro
+shortcuts are configurable with `:bind`, `:unbind`, `:shortcut` and `:bindings`;
+see [the workflow guide](WORKFLOW.md). F2 toggles base/alt; navigation events
+select nav independently of the reported NumLock flag.
 
 The console input mode is restored on normal return, I/O failure and Rust
 panic unwinding. Process termination without unwinding cannot run cleanup.
@@ -93,7 +95,9 @@ The first runs formatting, check, Rust tests, strict Clippy, rebuild and both
 numerical oracles before checking the five existing numeric milestone boxes.
 The second creates a new hidden console, injects synthetic input only there,
 and verifies the real Win32 adapter, decimal comma, repeats, releases,
-arithmetic errors, undo/redo, diagnostic fields, exits and mode restoration.
+arithmetic errors, undo/redo, diagnostic fields, keypad layers, Windows line
+editing, history recall/search, Tab completion, exits and mode restoration
+across five sessions.
 It never injects input into the user's active console. This supplements the
 pure state-machine and CLI tests, and does not replace physical numpad tests.
 

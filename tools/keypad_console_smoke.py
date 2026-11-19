@@ -10,6 +10,7 @@ from __future__ import annotations
 import ctypes
 from ctypes import wintypes as w
 import msvcrt
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -69,7 +70,7 @@ def worker(executable: Path) -> None:
         original_mode = mode()
 
         def exercise(flag: str, events: list[InputRecord], expected: list[str]) -> None:
-            child = subprocess.Popen([str(executable), flag], stdin=console_in, stdout=console_out, stderr=subprocess.PIPE)
+            child = subprocess.Popen([str(executable)] + ([flag] if flag else []), stdin=console_in, stdout=console_out, stderr=subprocess.PIPE)
             try:
                 deadline = time.monotonic() + 5
                 while mode() == original_mode:
@@ -109,7 +110,24 @@ def worker(executable: Path) -> None:
             record(0x23, flags=0), record(0x0d, "\r", flags=0x120),
             record(0x1b, "\x1b"),
         ], ["repeat=3 vk=0x006E scan=0x0053 unicode=U+002C", "up  ", "numlock=false", "enhanced=true", "Some(Enter)"])
-    print("PASS: 3 isolated Windows console sessions, synthetic input and mode restoration")
+        exercise("--keypad", [
+            record(0x34, "4", flags=0), record(0x0d, "\r"),
+            record(0x71), record(0x37, "7", flags=0),
+            record(0x23, flags=0x100), record(0x43, "\x03", flags=0x08),
+        ], ["X=16", "layer=alt", "X=4"])
+
+        def text(source: str) -> list[InputRecord]:
+            return [record(0, char, flags=0) for char in source]
+
+        enter = record(0x0d, "\r", flags=0)
+        exercise("", text(": square dup * ;") + [enter]
+                 + text("9 squa") + [record(0x09, "\t", flags=0), enter]
+                 + [record(0x26, flags=0x100), enter]
+                 + text("square") + [record(0x52, "\x12", flags=0x08), enter]
+                 + text(":history square") + [enter]
+                 + text(":quit") + [enter],
+                 ["81", "9 square", ": square dup * ;"])
+    print("PASS: 5 isolated Windows console sessions; keypad layers, line editing, history, completion and mode restoration")
 
 
 def main() -> None:
@@ -122,10 +140,11 @@ def main() -> None:
     startup = subprocess.STARTUPINFO()
     startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     startup.wShowWindow = subprocess.SW_HIDE
-    with tempfile.TemporaryFile(mode="w+b") as log:
+    with tempfile.TemporaryFile(mode="w+b") as log, tempfile.TemporaryDirectory(prefix="rpning-console-state-") as state:
         result = subprocess.run(
             [sys.executable, str(Path(__file__).resolve()), "--worker", str(executable)],
             creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startup,
+            env=dict(os.environ, RPNING_HOME=state),
             stdout=log, stderr=subprocess.STDOUT, timeout=30, check=False,
         )
         log.seek(0)

@@ -2,6 +2,32 @@
 
 use std::io;
 
+#[cfg(windows)]
+pub fn read_line(
+    prompt: &str,
+    history: &[String],
+    completions: &[String],
+) -> io::Result<Option<String>> {
+    windows::read_line(prompt, history, completions)
+}
+
+#[cfg(not(windows))]
+pub fn read_line(
+    prompt: &str,
+    _history: &[String],
+    _completions: &[String],
+) -> io::Result<Option<String>> {
+    use std::io::Write;
+    print!("{prompt}");
+    io::stdout().flush()?;
+    let mut line = String::new();
+    if io::stdin().read_line(&mut line)? == 0 {
+        Ok(None)
+    } else {
+        Ok(Some(line.trim_end_matches(['\r', '\n']).to_owned()))
+    }
+}
+
 #[cfg(not(windows))]
 pub fn run(_diagnostic: bool) -> io::Result<()> {
     Err(io::Error::new(
@@ -21,7 +47,7 @@ mod windows {
     use std::io::{self, IsTerminal, Write};
 
     use rpning::keypad::{Key, Keypad, Outcome, character_key};
-    use rpning::number::format_number;
+    use rpning::{Calculator, config::Config, keymap::Keymap, programming};
 
     const KEY_EVENT: u16 = 0x0001;
     const ALT: u32 = 0x0003;
@@ -192,6 +218,49 @@ mod windows {
         )
     }
 
+    fn key_identity(event: KeyEvent) -> Option<(String, bool)> {
+        if event.down == 0 || event.controls & (CTRL | ALT) != 0 {
+            return None;
+        }
+        let navigation = match event.virtual_key {
+            0x24 => Some("home"),
+            0x26 => Some("up"),
+            0x21 => Some("pageup"),
+            0x25 => Some("left"),
+            0x27 => Some("right"),
+            0x23 => Some("end"),
+            0x28 => Some("down"),
+            0x22 => Some("pagedown"),
+            0x2d => Some("insert"),
+            0x2e => Some("delete"),
+            _ => None,
+        };
+        if let Some(key) = navigation {
+            return Some((key.to_owned(), true));
+        }
+        let special = match event.virtual_key {
+            0x0d => Some("enter"),
+            0x08 => Some("backspace"),
+            0x09 => Some("tab"),
+            0x71 => Some("layer"),
+            _ => None,
+        };
+        if let Some(key) = special {
+            return Some((key.to_owned(), false));
+        }
+        let character = char::from_u32(u32::from(event.character))?;
+        let key = match character {
+            '.' | ',' => "decimal".to_owned(),
+            '+' => "add".to_owned(),
+            '-' => "subtract".to_owned(),
+            '*' => "multiply".to_owned(),
+            '/' => "divide".to_owned(),
+            c if c.is_ascii_alphanumeric() => c.to_ascii_lowercase().to_string(),
+            _ => return None,
+        };
+        Some((key, false))
+    }
+
     fn clipped(text: &str) -> String {
         const LIMIT: usize = 56;
         if text.chars().count() > LIMIT {
@@ -201,18 +270,19 @@ mod windows {
         }
     }
 
-    fn show_state(out: &mut impl Write, pad: &Keypad) -> io::Result<()> {
+    fn show_state(out: &mut impl Write, pad: &Keypad, map: &Keymap) -> io::Result<()> {
         let calc = pad.calculator();
         let top = calc
             .top()
-            .map(format_number)
+            .map(|value| map.config.display.format(value, calc.settings().rounding))
             .unwrap_or_else(|| "(empty)".to_owned());
         writeln!(
             out,
-            "depth={}  X={}  entry={}",
+            "depth={}  X={}  entry={}  layer={}",
             calc.depth(),
             clipped(&top),
-            clipped(pad.pending())
+            clipped(pad.pending()),
+            map.layer()
         )?;
         out.flush()
     }
@@ -259,9 +329,25 @@ mod windows {
             )?;
         }
         out.flush()?;
-        let mut pad = Keypad::new();
+        let config = if diagnostic {
+            Config::default()
+        } else {
+            Config::load().map_err(io::Error::other)?
+        };
+        let mut calc = Calculator::new();
+        config.apply(&mut calc).map_err(io::Error::other)?;
+        if !diagnostic && programming::macro_path().exists() {
+            programming::load(&mut calc, &programming::macro_path()).map_err(io::Error::other)?;
+        }
+        calc.clear_history();
+        let mut pad = Keypad::from_calculator(calc);
+        let mut map = Keymap::new(config);
         if !diagnostic {
-            show_state(out, &pad)?;
+            writeln!(
+                out,
+                "Navigation keys use the nav layer; F2 toggles base/alt. Use :bindings in the REPL to inspect mappings."
+            )?;
+            show_state(out, &pad, &map)?;
         }
         loop {
             let event = input.read_key()?;
@@ -271,9 +357,15 @@ mod windows {
                 if mapped_key(event) == Some(Key::Quit) {
                     break;
                 }
-            } else if let Some(key) = mapped_key(event) {
+            } else if event.down != 0 {
+                let fallback = mapped_key(event);
+                let identity = key_identity(event);
+                if fallback.is_none() && identity.is_none() {
+                    continue;
+                }
+                let (key, navigation) = identity.unwrap_or_else(|| (String::new(), false));
                 for _ in 0..event.repeats {
-                    match pad.handle(key) {
+                    match map.handle(&mut pad, &key, navigation, fallback) {
                         Ok(Outcome::Quit) => return Ok(()),
                         Ok(Outcome::Continue) => {}
                         Err(error) => {
@@ -282,10 +374,193 @@ mod windows {
                         }
                     }
                 }
-                show_state(out, &pad)?;
+                show_state(out, &pad, &map)?;
             }
         }
         Ok(())
+    }
+
+    pub fn read_line(
+        prompt: &str,
+        history: &[String],
+        completions: &[String],
+    ) -> io::Result<Option<String>> {
+        let mut input = ConsoleInput::open()?;
+        let stdout = io::stdout();
+        let mut out = stdout.lock();
+        let result = edit_line(&input, &mut out, prompt, history, completions);
+        let restored = input.restore();
+        match (result, restored) {
+            (Ok(line), Ok(())) => Ok(line),
+            (Err(error), _) | (_, Err(error)) => Err(error),
+        }
+    }
+
+    fn redraw(
+        out: &mut impl Write,
+        prompt: &str,
+        buffer: &[char],
+        cursor: usize,
+    ) -> io::Result<()> {
+        let start = cursor.saturating_sub(55);
+        let end = (start + 60).min(buffer.len());
+        let visible: String = buffer[start..end].iter().collect();
+        let before: String = buffer[start..cursor].iter().collect();
+        write!(out, "\r{prompt}{:64}\r{prompt}{before}", visible)?;
+        out.flush()
+    }
+
+    fn edit_line(
+        input: &ConsoleInput,
+        out: &mut impl Write,
+        prompt: &str,
+        history: &[String],
+        completions: &[String],
+    ) -> io::Result<Option<String>> {
+        let mut buffer = Vec::new();
+        let mut cursor = 0;
+        let mut history_index = history.len();
+        let mut draft = String::new();
+        let mut search: Option<(String, usize)> = None;
+        let mut high_surrogate = None;
+        redraw(out, prompt, &buffer, cursor)?;
+        loop {
+            let event = input.read_key()?;
+            if event.down == 0 {
+                continue;
+            }
+            let control = event.controls & CTRL != 0 && event.controls & ALT == 0;
+            if control {
+                match event.virtual_key {
+                    0x43 => {
+                        writeln!(out, "^C")?;
+                        return Ok(Some(String::new()));
+                    }
+                    0x44 if buffer.is_empty() => {
+                        writeln!(out)?;
+                        return Ok(None);
+                    }
+                    0x55 => {
+                        buffer.clear();
+                        cursor = 0;
+                        search = None;
+                    }
+                    0x52 => {
+                        let (needle, before) =
+                            search.get_or_insert_with(|| (buffer.iter().collect(), history.len()));
+                        if let Some(index) = (0..*before)
+                            .rev()
+                            .find(|index| history[*index].contains(needle.as_str()))
+                        {
+                            buffer = history[index].chars().collect();
+                            cursor = buffer.len();
+                            *before = index;
+                        }
+                    }
+                    _ => {}
+                }
+            } else {
+                for _ in 0..event.repeats {
+                    match event.virtual_key {
+                        0x0d => {
+                            redraw(out, prompt, &buffer, buffer.len())?;
+                            writeln!(out)?;
+                            return Ok(Some(buffer.iter().collect()));
+                        }
+                        0x1b => {
+                            buffer.clear();
+                            cursor = 0;
+                            search = None;
+                        }
+                        0x08 if cursor > 0 => {
+                            cursor -= 1;
+                            buffer.remove(cursor);
+                            search = None;
+                        }
+                        0x2e if cursor < buffer.len() => {
+                            buffer.remove(cursor);
+                            search = None;
+                        }
+                        0x25 => cursor = cursor.saturating_sub(1),
+                        0x27 => cursor = (cursor + 1).min(buffer.len()),
+                        0x24 => cursor = 0,
+                        0x23 => cursor = buffer.len(),
+                        0x26 => {
+                            if history_index == history.len() {
+                                draft = buffer.iter().collect();
+                            }
+                            history_index = history_index.saturating_sub(1);
+                            if let Some(line) = history.get(history_index) {
+                                buffer = line.chars().collect();
+                                cursor = buffer.len();
+                            }
+                        }
+                        0x28 => {
+                            history_index = (history_index + 1).min(history.len());
+                            let line = history.get(history_index).unwrap_or(&draft);
+                            buffer = line.chars().collect();
+                            cursor = buffer.len();
+                        }
+                        0x09 => {
+                            let start = buffer[..cursor]
+                                .iter()
+                                .rposition(|c| c.is_whitespace())
+                                .map_or(0, |index| index + 1);
+                            let prefix: String = buffer[start..cursor].iter().collect();
+                            let matches: Vec<_> = completions
+                                .iter()
+                                .filter(|word| word.starts_with(&prefix))
+                                .collect();
+                            if matches.len() == 1 {
+                                let replacement: Vec<_> = matches[0].chars().collect();
+                                cursor = start + replacement.len();
+                                buffer.splice(start..(start + prefix.chars().count()), replacement);
+                            } else if !matches.is_empty() {
+                                writeln!(
+                                    out,
+                                    "\n{}",
+                                    matches
+                                        .iter()
+                                        .take(30)
+                                        .map(|word| word.as_str())
+                                        .collect::<Vec<_>>()
+                                        .join("  ")
+                                )?;
+                            }
+                        }
+                        _ => {
+                            let unit = event.character;
+                            if (0xd800..=0xdbff).contains(&unit) {
+                                high_surrogate = Some(unit);
+                                continue;
+                            }
+                            let character = if let Some(high) = high_surrogate.take() {
+                                if (0xdc00..=0xdfff).contains(&unit) {
+                                    char::from_u32(
+                                        0x10000
+                                            + ((u32::from(high) - 0xd800) << 10)
+                                            + u32::from(unit)
+                                            - 0xdc00,
+                                    )
+                                } else {
+                                    char::from_u32(u32::from(unit))
+                                }
+                            } else {
+                                char::from_u32(u32::from(unit))
+                            };
+                            if let Some(character) = character.filter(|c| !c.is_control())
+                                && buffer.len() < 4096
+                            {
+                                buffer.insert(cursor, character);
+                                cursor += 1;
+                                search = None;
+                            }
+                        }
+                    }
+                }
+            }
+            redraw(out, prompt, &buffer, cursor)?;
+        }
     }
 
     #[cfg(test)]

@@ -40,6 +40,17 @@ impl Keypad {
         Self::default()
     }
 
+    pub fn from_calculator(calculator: Calculator) -> Self {
+        Self {
+            calculator,
+            pending: String::new(),
+        }
+    }
+
+    pub fn execute_expression(&mut self, expression: &str) -> Result<(), String> {
+        self.execute(expression)
+    }
+
     pub fn calculator(&self) -> &Calculator {
         &self.calculator
     }

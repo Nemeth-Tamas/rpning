@@ -1,0 +1,27 @@
+{
+  "label": "before-vm-transfer",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "rust": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+  "binary_sha256": "17c48e93f13f0e5692eb8ff866ef4f561e8c54cf48ac8361044e14536e2ba6c8",
+  "startup_samples": 30,
+  "startup_median_ns": 4754550,
+  "operation_samples": 9,
+  "operations": [
+    {
+      "case": "compiled_stack_1000",
+      "operations": 2000,
+      "median_ns": 9853500
+    },
+    {
+      "case": "plain_stack_1000",
+      "operations": 2000,
+      "median_ns": 4119100
+    },
+    {
+      "case": "compiled_macro",
+      "operations": 2000,
+      "median_ns": 402500
+    }
+  ],
+  "sampled_peak_working_set_bytes": 4722688
+}

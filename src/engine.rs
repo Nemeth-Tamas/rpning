@@ -103,6 +103,11 @@ impl Calculator {
         Self::default()
     }
 
+    pub fn clear_history(&mut self) {
+        self.undo_history.clear();
+        self.redo_history.clear();
+    }
+
     /// Values are stored bottom-to-top. X is the final element.
     pub fn stack(&self) -> &[Number] {
         &self.stack

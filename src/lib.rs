@@ -1,4 +1,8 @@
+pub mod config;
+pub mod display;
 pub mod engine;
+pub mod history;
+pub mod keymap;
 pub mod keypad;
 pub mod language;
 pub mod math;
@@ -9,5 +13,6 @@ pub mod programming;
 pub mod scientific;
 pub mod storage;
 pub mod transcendental;
+pub mod workflow;
 
 pub use engine::{CalcError, Calculator};

@@ -1,12 +1,12 @@
 use std::env;
-use std::io::{self, IsTerminal, Write};
+use std::io::{self, IsTerminal};
 use std::process;
 
 use rpning::Calculator;
-use rpning::number::{Number, format_number};
+use rpning::number::Number;
 use rpning::precision::Rounding;
-use rpning::scientific::format_scientific;
 use rpning::storage;
+use rpning::{config::Config, display::DisplayMode, history::History, workflow};
 use rpning::{persistence, programming};
 
 mod keypad_terminal;
@@ -57,11 +57,12 @@ fn run() -> io::Result<()> {
 
 fn evaluate_once(expression: &str) -> io::Result<()> {
     let mut calc = Calculator::new();
+    let config = Config::default();
 
     calc.evaluate(expression).map_err(io::Error::other)?;
 
     if let Some(top) = calc.top() {
-        println!("{}", format_for_calc(&calc, top));
+        println!("{}", format_for_calc(&calc, &config, top));
     }
 
     Ok(())
@@ -72,23 +73,44 @@ fn repl() -> io::Result<()> {
     let interactive = stdin.is_terminal();
 
     let mut calc = Calculator::new();
+    let mut config = if interactive {
+        Config::load().map_err(io::Error::other)?
+    } else {
+        Config::default()
+    };
+    config.apply(&mut calc).map_err(io::Error::other)?;
+    let mut history = if interactive {
+        History::load().map_err(io::Error::other)?
+    } else {
+        History::default()
+    };
     if interactive && programming::macro_path().exists() {
         programming::load(&mut calc, &programming::macro_path()).map_err(io::Error::other)?;
     }
+    calc.clear_history();
     let mut line = String::new();
     let mut had_error = false;
 
     loop {
-        if interactive {
-            print!("> ");
-            io::stdout().flush()?;
-        }
-
         line.clear();
-
-        if stdin.read_line(&mut line)? == 0 {
+        if interactive {
+            match keypad_terminal::read_line(
+                "> ",
+                history.entries(),
+                &workflow::completions(&calc),
+            )? {
+                Some(input) => line = input,
+                None => break,
+            }
+        } else if stdin.read_line(&mut line)? == 0 {
             break;
         }
+        if !line.trim().starts_with(":history") {
+            history.record(line.trim());
+        }
+
+        let previous_macros = calc.macros().clone();
+        let previous_config = config.clone();
 
         match line.trim() {
             "" => continue,
@@ -99,15 +121,27 @@ fn repl() -> io::Result<()> {
                 print_help();
             }
 
+            command if workflow::is_command(command) => {
+                match workflow::command(&mut calc, &mut config, &mut history, command) {
+                    Ok(lines) => {
+                        for line in lines {
+                            println!("{line}");
+                        }
+                    }
+                    Err(error) => {
+                        eprintln!("error: {error}");
+                        if !interactive {
+                            had_error = true;
+                        }
+                    }
+                }
+            }
+
             command if programming::is_command(command) => {
                 match programming::command(&mut calc, command) {
                     Ok(lines) => {
                         for line in lines {
                             println!("{line}");
-                        }
-                        if interactive {
-                            programming::save(&calc, &programming::macro_path())
-                                .map_err(io::Error::other)?;
                         }
                     }
                     Err(error) => {
@@ -124,7 +158,7 @@ fn repl() -> io::Result<()> {
                     println!("(empty)");
                 } else {
                     for (index, value) in calc.stack().iter().rev().enumerate() {
-                        println!("[{index}] {}", format_for_calc(&calc, value));
+                        println!("[{index}] {}", format_for_calc(&calc, &config, value));
                     }
                 }
             }
@@ -134,7 +168,7 @@ fn repl() -> io::Result<()> {
                     println!("(no registers)");
                 } else {
                     for (name, value) in calc.registers() {
-                        println!("{name} = {}", format_for_calc(&calc, value));
+                        println!("{name} = {}", format_for_calc(&calc, &config, value));
                     }
                 }
             }
@@ -174,8 +208,11 @@ fn repl() -> io::Result<()> {
                     || command.starts_with(":mode ")
                     || command.starts_with(":display ") =>
             {
-                match configure(&mut calc, command) {
-                    Ok(message) => println!("{message}"),
+                match configure(&mut calc, &mut config, command) {
+                    Ok(message) => {
+                        println!("{message}");
+                        config.capture(&calc);
+                    }
                     Err(message) => {
                         eprintln!("error: {message}");
                         if !interactive {
@@ -194,7 +231,7 @@ fn repl() -> io::Result<()> {
 
                 if changed {
                     if let Some(top) = calc.top() {
-                        println!("{}", format_for_calc(&calc, top));
+                        println!("{}", format_for_calc(&calc, &config, top));
                     } else {
                         println!("(empty)");
                     }
@@ -209,12 +246,8 @@ fn repl() -> io::Result<()> {
 
             expression => match calc.evaluate(expression) {
                 Ok(()) => {
-                    if interactive && !calc.macros().is_empty() {
-                        programming::save(&calc, &programming::macro_path())
-                            .map_err(io::Error::other)?;
-                    }
                     if let Some(top) = calc.top() {
-                        println!("{}", format_for_calc(&calc, top));
+                        println!("{}", format_for_calc(&calc, &config, top));
                     } else {
                         println!("(empty)");
                     }
@@ -229,8 +262,18 @@ fn repl() -> io::Result<()> {
                 }
             },
         }
+        if interactive && calc.macros() != &previous_macros {
+            programming::save(&calc, &programming::macro_path()).map_err(io::Error::other)?;
+        }
+        config.capture(&calc);
+        if interactive && config != previous_config {
+            config.save().map_err(io::Error::other)?;
+        }
     }
 
+    if interactive {
+        history.save().map_err(io::Error::other)?;
+    }
     if had_error {
         Err(io::Error::other("one or more input lines failed"))
     } else {
@@ -238,15 +281,11 @@ fn repl() -> io::Result<()> {
     }
 }
 
-fn format_for_calc(calc: &Calculator, value: &Number) -> String {
-    if calc.settings().scientific_display {
-        format_scientific(value)
-    } else {
-        format_number(value)
-    }
+fn format_for_calc(calc: &Calculator, config: &Config, value: &Number) -> String {
+    config.display.format(value, calc.settings().rounding)
 }
 
-fn configure(calc: &mut Calculator, command: &str) -> Result<String, String> {
+fn configure(calc: &mut Calculator, config: &mut Config, command: &str) -> Result<String, String> {
     let words: Vec<&str> = command.split_whitespace().collect();
     match words.as_slice() {
         [":settings"] => {
@@ -260,11 +299,7 @@ fn configure(calc: &mut Calculator, command: &str) -> Result<String, String> {
                 },
                 settings.bits,
                 settings.rounding.name(),
-                if settings.scientific_display {
-                    "scientific"
-                } else {
-                    "auto"
-                },
+                config.display.name(),
             ))
         }
         [":mode", mode @ ("exact" | "binary")] => {
@@ -284,9 +319,11 @@ fn configure(calc: &mut Calculator, command: &str) -> Result<String, String> {
             calc.set_rounding(rounding);
             Ok(format!("rounding: {}", rounding.name()))
         }
-        [":display", mode @ ("auto" | "scientific")] => {
-            calc.set_scientific_display(*mode == "scientific");
-            Ok(format!("display: {mode}"))
+        [":display", mode] => {
+            config.display = DisplayMode::parse(mode)
+                .ok_or("display: auto|scientific|fraction|fixed:N (N=0..128)")?;
+            calc.set_scientific_display(config.display == DisplayMode::Scientific);
+            Ok(format!("display: {}", config.display.name()))
         }
         _ => Err("invalid settings command; see :help".to_owned()),
     }
@@ -334,6 +371,21 @@ fn print_help() {
     println!("  :precision BITS           Binary precision (2..4096)");
     println!("  :round nearest|zero|up|down|away  Binary rounding mode");
     println!("  :display auto|scientific  Numeric display style");
+    println!("  :display fraction|fixed:N Exact fraction / rounded decimal (marked ~)");
+    println!("  :settings-save / :settings-load  Persist/restore numeric settings and mappings");
+    println!(
+        "  :history [TEXT]           Search saved command history; Up/Down, Ctrl+R in Windows REPL"
+    );
+    println!("  :history-save / :history-load    Explicit history persistence");
+    println!(
+        "  Tab                       Complete a command, word, macro or register (Windows REPL)"
+    );
+    println!("  :complete PREFIX          List completions in any terminal");
+    println!("  :shortcut NAME EXPRESSION / :do NAME   Define/use a command shortcut");
+    println!("  :bind LAYER KEY ACTION    Bind a keypad key to RPN or @undo/@layer:NAME/etc.");
+    println!(
+        "  :unbind LAYER KEY / :bindings  Remove/list mappings; F2 toggles base/alt in keypad"
+    );
     println!("  :settings                 Show numeric settings");
     println!("  :undo                     Restore previous stack");
     println!("  :redo                     Reapply undone calculation");
