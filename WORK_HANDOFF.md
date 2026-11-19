@@ -1,5 +1,16 @@
 # rpning development checkpoint
 
+## Release 0.2.0
+
+The package/lockfile and user-facing download instructions now target v0.2.0.
+This release packages the implemented M7 batch, default Windows TUI, setting
+discovery, scrollable output and complete embedded TUI/program/layer guides.
+The release: commit triggers the existing three-platform verification/build
+pipeline, then creates a new v0.2.0 release with three binaries and checksums.
+Verify the run and uploaded assets before claiming publication. Preserve v0.1.0.
+The pre-release feature commit 3f871ef passed Windows/Linux/macOS CI in run
+44526691980. The remaining M2/M7 tasks and manual Linux/macOS checks stay open.
+
 ## Latest TUI follow-up
 
 Windows terminal startup now defaults to the TUI; --repl explicitly selects
@@ -23,9 +34,8 @@ comparisons, seven isolated Windows console sessions, and guide examples/links.
 The prior implementation details below
 provide historical context; the latest behavior above takes precedence.
 
-The published v0.1.0 contains the original calculator core. Development main
-also contains the first M7 batch and the first Windows M9 TUI. Build current
-source to use them; do not replace the v0.1.0 tag.
+The original v0.1.0 contains the initial calculator core. Version v0.2.0 packages
+the extended features above; do not replace the original v0.1.0 tag.
 
     git pull --ff-only
     cargo run --release -- --tui

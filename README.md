@@ -3,7 +3,7 @@
 
 A fast, exact, programmable Reverse Polish Notation calculator written in Rust.
 
-**[Download rpning 0.1.0](https://github.com/Nemeth-Tamas/rpning/releases/tag/v0.1.0)**
+**[Download rpning 0.2.0](https://github.com/Nemeth-Tamas/rpning/releases/tag/v0.2.0)**
 for Windows x64, Linux x64 or macOS ARM64. Prebuilt binaries need no Rust
 installation. See [INSTALL.txt](INSTALL.txt) for first-run/source-build steps;
 SHA256SUMS.txt accompanies the downloads. The release passed all three
@@ -13,11 +13,11 @@ The goal is to combine traditional stack-based calculation with arbitrary-precis
 
 ## Current implementation
 
-Development `main` additionally includes the first M7 batch: base-prefixed
+Version 0.2.0 includes the first M7 batch: base-prefixed
 integer input/output, bitwise and fixed-width conversions, counted exact
 statistics, combinations/permutations and binomial probabilities. See
-[extended mathematics](docs/EXTENDED.md). Build from source for features added
-after the v0.1.0 downloadable binaries.
+[extended mathematics](docs/EXTENDED.md). The v0.2.0 downloads include these
+features and the Windows TUI; the original v0.1.0 remains available separately.
 
 The Windows calculator TUI is the default interactive mode with
 `cargo run --release`: fixed result/entry at the top, live stack and calculation
@@ -31,7 +31,7 @@ attached [full program guide](docs/PROGRAM_GUIDE.md) for mathematics, settings,
 registers, macros, advanced programming, scripts and all commands. Both guides
 are embedded in TUI `:help tui` / `:help program`, with topic chapters.
 
-Initial release implementation, with the extended roadmap retained in TODO.md.
+The implemented feature set is listed below; remaining work stays in TODO.md.
 
 - Exact arbitrary-precision integers and rational numbers
 - Exact decimal and scientific-notation input

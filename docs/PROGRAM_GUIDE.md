@@ -26,8 +26,9 @@ Contents:
 
 ## Starting the program
 
-These instructions describe development main. The v0.1.0 downloadable binaries
-predate extended mathematics and the TUI. Build current source:
+These instructions describe rpning v0.2.0, including extended mathematics and
+the Windows TUI. Download a [prebuilt binary](https://github.com/Nemeth-Tamas/rpning/releases/tag/v0.2.0)
+or build from source:
 
 ```powershell
 git pull --ff-only

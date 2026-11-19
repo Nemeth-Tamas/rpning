@@ -11,8 +11,9 @@ other topics jump to the relevant section. F6 focuses the output for scrolling.
 
 ## Launch and first calculation
 
-Build development main for these features; downloadable v0.1.0 binaries
-predate the TUI and extended mathematics.
+Download [rpning v0.2.0](https://github.com/Nemeth-Tamas/rpning/releases/tag/v0.2.0)
+for a ready-to-run binary, or build from source below. The v0.2.0 Windows
+binary includes the TUI, extended mathematics and both embedded guides.
 
 ```powershell
 git pull --ff-only

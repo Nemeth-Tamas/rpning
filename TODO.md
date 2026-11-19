@@ -1,6 +1,11 @@
 
 # rpning — Development Roadmap
 
+Release checkpoint: v0.2.0 packages the implemented M7 batch and Windows M9
+TUI, setting discovery and full embedded guides. Its release pipeline builds
+Windows/Linux/macOS binaries and checksums after all gates pass. The original
+v0.1.0 release and all remaining unchecked tasks are preserved.
+
 ## M0 — Project foundation
 
 - [x] Define project scope and architecture
