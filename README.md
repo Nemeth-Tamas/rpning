@@ -3,6 +3,12 @@
 
 A fast, exact, programmable Reverse Polish Notation calculator written in Rust.
 
+**[Download rpning 0.1.0](https://github.com/Nemeth-Tamas/rpning/releases/tag/v0.1.0)**
+for Windows x64, Linux x64 or macOS ARM64. Prebuilt binaries need no Rust
+installation. See [INSTALL.txt](INSTALL.txt) for first-run/source-build steps;
+SHA256SUMS.txt accompanies the downloads. The release passed all three
+platforms' build, test, Clippy and independent numerical-oracle gates.
+
 The goal is to combine traditional stack-based calculation with arbitrary-precision mathematics, a powerful macro language, and a lightweight terminal interface.
 
 ## Current implementation
@@ -329,7 +335,8 @@ History stores full stack snapshots. A future optimization may reduce memory usa
 - `src/number.rs` - numerical backend and parsing
 - `tests/cli.rs` - CLI integration tests
 
-Malachite is the provisional numerical backend.
+Malachite is the selected runtime numerical backend. A stable backend-independent
+number abstraction remains on the roadmap.
 
 ## Exact advanced mathematics and numeric controls
 
@@ -387,7 +394,10 @@ marks rounded fixed output without changing the exact number. See the full
 
 See `TODO.md`.
 
-Future development includes arbitrary-precision real functions, stack registers, programmable macros, script execution, configurable key mappings, physical numpad mode, advanced mathematics and performance optimization.
+Future work includes the remaining numeric abstraction/optimization tasks and
+the M7 extended mathematical environment: complex numbers, alternate bases,
+statistics, vectors, units, finance and numerical methods. Existing roadmap
+entries remain unchanged in TODO.md.
 
 ## Development
 

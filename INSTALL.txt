@@ -1,28 +1,68 @@
-rpning Slice 10 - M2/M3 feature and TODO integration
-Repository: Nemeth-Tamas/rpning, main, inspected HEAD 995d9983f1e43bcfab3f99289bf087852ba9081f
+rpning 0.1.0 - Installation and first run
+Repository: https://github.com/Nemeth-Tamas/rpning
+Releases: https://github.com/Nemeth-Tamas/rpning/releases
 
-Download all 6 files individually (NO ZIP), and place exactly:
-  src/transcendental.rs
-  tests/transcendental_cli.rs
-  tools/transcendental_oracle.py
-  tools/verify_and_tick_slice10.py
-  tools/apply_slice10.py
-  docs/M2-M3-REAL-MATH.md
+RUN A PREBUILT BINARY
+Download the binary matching your operating system and architecture from the
+v0.1.0 release. Rust is not needed to run a prebuilt binary. SHA256SUMS.txt
+contains SHA-256 checksums.
 
-Run from repo root, PowerShell:
-  python tools/apply_slice10.py
-  python tools/verify_and_tick_slice10.py
+Windows x64:
+  Download rpn-Windows-X64.exe and optionally rename it rpn.exe.
+  Open PowerShell in that directory and run:
+    .\rpn.exe
+    .\rpn.exe --keypad
+    .\rpn.exe --eval "0.1 0.2 +"
 
-The verifier automatically runs all the gates and two numerical oracles; ONLY after all pass, it checks the five existing TODO entries (precision reference tests plus logs/exp, trig, constants, degree/radian conversion). No new TODO tasks.
+Linux x64 / macOS ARM64:
+  Download the matching Linux-X64 or macOS-ARM64 binary and rename it rpn.
+  Run:
+    chmod +x ./rpn
+    ./rpn
+    ./rpn --eval "0.1 0.2 +"
+  Dedicated keypad input and advanced line editing currently require Windows.
+  The ordinary REPL, pipes, scripts and macro engine work on all three systems.
 
-Commit and push even if broken:
-  git add .
-  git commit -m "feat: add guarded-precision real functions and complete M2 groundwork"
-  git push origin main
+BUILD OR UPDATE FROM SOURCE
+Install a current stable Rust toolchain. From the repository root:
+  git pull --ff-only
+  cargo build --release --locked
 
-If any gate fails, use:
-  git add .
-  git commit -m "wip: real math functions awaiting compiler fixes"
-  git push origin main
+Windows executable:
+  .\target\release\rpn.exe
+  .\target\release\rpn.exe --keypad
+  .\target\release\rpn.exe --keypad-diagnose
+  .\target\release\rpn.exe --run examples/invoice.rpn
 
-Important: 2-512 bit real-function precision limit; exact arithmetic unchanged. No Rust toolchain available to this assistant: run user-side gates before checking four new TODO items.
+KEYPAD FIRST CALCULATION
+With numeric input enabled on the numpad:
+  12, Enter, 3, +, 2, *
+The result is 30; arithmetic operators execute immediately.
+Navigation-mode keys use configurable nav shortcuts. F2 toggles base/alt.
+Use :bindings in the ordinary REPL to inspect mappings.
+
+PROGRAMMING
+  : square "Square X" dup * ;
+  5 square
+  :bind nav home square
+  :settings-save
+
+See :help, README.md, docs/LANGUAGE.md, docs/WORKFLOW.md and docs/KEYPAD.md.
+Interactive sessions save macros/settings automatically and history on exit.
+Registers persist only on explicit :save/:load. State is normally stored in
+%APPDATA%/rpning on Windows; set RPNING_HOME to choose another directory.
+Pipes, --eval and --run start fresh rather than implicitly loading user state.
+
+DEVELOPER VALIDATION
+  cargo fmt --check
+  cargo check --locked
+  cargo test --locked
+  cargo clippy --locked --all-targets --all-features -- -D warnings
+  python tools/precision_oracle.py target/release/rpn.exe
+  python tools/transcendental_oracle.py target/release/rpn.exe
+  python tools/keypad_console_smoke.py target/release/rpn.exe
+Use target/release/rpn without .exe on Linux/macOS; the console smoke test is
+Windows-only. GitHub Actions runs cross-platform checks and release builds.
+
+The old tools/apply_* and tools/install_* scripts are historical slice helpers.
+Do not run them over the current release; update via Git instead.

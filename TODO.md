@@ -126,6 +126,6 @@
 - [x] Verify Windows compatibility
 - [ ] Verify Linux compatibility
 - [ ] Verify macOS compatibility
-- [ ] Add cross-platform release builds
+- [x] Add cross-platform release builds
 - [x] Complete user documentation
-- [ ] Publish initial stable release
+- [x] Publish initial stable release

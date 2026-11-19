@@ -1,5 +1,23 @@
 # rpning — Comprehensive Work-mode handoff
 
+## Published release and next work
+
+rpning 0.1.0 is published (non-draft, non-prerelease) at
+https://github.com/Nemeth-Tamas/rpning/releases/tag/v0.1.0 from commit
+67d12a9ae9bd5fe1527d500cc0df7c1103b07262. Windows x64, Linux x64 and macOS
+ARM64 binaries and SHA256SUMS.txt were verified uploaded. All three platform
+build/test/Clippy/oracle jobs passed in release run 44508757824. Windows local
+validation covered 123 Rust tests and five isolated console sessions.
+
+The user wants to continue the remaining TODO. M2 still needs a stable numeric
+abstraction and measured small-integer optimization; M7 is unimplemented.
+Recommended next slice: finish those M2 foundations before adding complex and
+other extended values. Do not mark any M7 task complete yet. The user deferred
+hands-on Linux/macOS acceptance, so those two TODO boxes remain open despite
+successful automated CI. Cross-platform release builds and initial publishing
+are complete. INSTALL.txt now contains release installation steps instead of
+obsolete slice-install instructions. Remaining sections are historical context.
+
 ## Initial release implementation (2026-11-19)
 
 Current code includes the M4 compiled macro language, all M5 workflow features
