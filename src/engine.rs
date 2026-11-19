@@ -5,10 +5,12 @@ use std::fmt;
 use malachite::Integer;
 use malachite::base::num::arithmetic::traits::DivRem;
 
+use crate::language::{self, Definition, Definitions, Program};
 use crate::math;
 use crate::number::{Number, parse_literal};
 use crate::precision::{MAX_BITS, MIN_BITS, NumericSettings, Rounding, round_binary};
 use crate::transcendental;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CalcError {
@@ -82,6 +84,7 @@ const HISTORY_LIMIT: usize = 128;
 struct Snapshot {
     stack: Vec<Number>,
     registers: BTreeMap<String, Number>,
+    macros: Definitions,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -91,6 +94,8 @@ pub struct Calculator {
     settings: NumericSettings,
     undo_history: Vec<Snapshot>,
     redo_history: Vec<Snapshot>,
+    macros: Definitions,
+    transient: bool,
 }
 
 impl Calculator {
@@ -159,6 +164,7 @@ impl Calculator {
             let previous = Snapshot {
                 stack: self.stack.clone(),
                 registers: std::mem::replace(&mut self.registers, loaded),
+                macros: self.macros.clone(),
             };
             push_bounded(&mut self.undo_history, previous);
             self.redo_history.clear();
@@ -186,6 +192,7 @@ impl Calculator {
         let current = Snapshot {
             stack: std::mem::replace(&mut self.stack, previous.stack),
             registers: std::mem::replace(&mut self.registers, previous.registers),
+            macros: std::mem::replace(&mut self.macros, previous.macros),
         };
 
         push_bounded(&mut self.redo_history, current);
@@ -203,6 +210,7 @@ impl Calculator {
         let current = Snapshot {
             stack: std::mem::replace(&mut self.stack, next.stack),
             registers: std::mem::replace(&mut self.registers, next.registers),
+            macros: std::mem::replace(&mut self.macros, next.macros),
         };
 
         push_bounded(&mut self.undo_history, current);
@@ -214,11 +222,118 @@ impl Calculator {
     /// If any token fails, neither stack nor register modifications
     /// are committed to the calculator.
     pub fn evaluate(&mut self, input: &str) -> Result<(), CalcError> {
+        if self.macros.is_empty() && !language::needs_vm(input) {
+            return self.evaluate_plain(input);
+        }
+        let program = language::compile(input).map_err(CalcError::Math)?;
+        self.execute_program(&program, false).map(|_| ())
+    }
+
+    pub fn macros(&self) -> &Definitions {
+        &self.macros
+    }
+
+    pub(crate) fn define_macro(&mut self, name: String, definition: Arc<Definition>) {
+        self.macros.insert(name, definition);
+    }
+
+    pub(crate) fn pop_value(&mut self, operator: &str) -> Result<Number, String> {
+        self.stack
+            .pop()
+            .ok_or_else(|| format!("stack underflow in '{operator}'"))
+    }
+
+    pub(crate) fn push_value(&mut self, value: Number) -> Result<(), String> {
+        if self.stack.len() >= 100_000 {
+            return Err("stack depth limit exceeded".to_owned());
+        }
+        let value = self.quantize(value).map_err(|error| error.to_string())?;
+        self.stack.push(value);
+        Ok(())
+    }
+
+    pub fn export_macros(&self) -> String {
+        let mut source = String::from("# rpning macro library v1\n");
+        for definition in self.macros.values() {
+            source.push_str(&definition.source);
+            source.push('\n');
+        }
+        source
+    }
+
+    pub fn import_macros(&mut self, source: &str) -> Result<(), CalcError> {
+        let program = language::compile(source).map_err(CalcError::Math)?;
+        if !language::definitions_only(&program) {
+            return Err(CalcError::Math(
+                "macro imports may contain definitions only".to_owned(),
+            ));
+        }
+        self.execute_program(&program, false).map(|_| ())
+    }
+
+    pub fn evaluate_traced(&mut self, source: &str) -> Result<Vec<String>, CalcError> {
+        let program = language::compile(source).map_err(CalcError::Math)?;
+        self.execute_program(&program, true)
+    }
+
+    pub fn execute_program(
+        &mut self,
+        program: &Program,
+        traced: bool,
+    ) -> Result<Vec<String>, CalcError> {
+        let mut working = Self {
+            stack: self.stack.clone(),
+            registers: self.registers.clone(),
+            settings: self.settings,
+            macros: self.macros.clone(),
+            transient: true,
+            ..Self::default()
+        };
+        let trace = language::execute(&mut working, program, traced).map_err(CalcError::Math)?;
+        if working.stack != self.stack
+            || working.registers != self.registers
+            || working.macros != self.macros
+        {
+            let previous = Snapshot {
+                stack: std::mem::replace(&mut self.stack, working.stack),
+                registers: std::mem::replace(&mut self.registers, working.registers),
+                macros: std::mem::replace(&mut self.macros, working.macros),
+            };
+            push_bounded(&mut self.undo_history, previous);
+            self.redo_history.clear();
+        }
+        Ok(trace)
+    }
+
+    pub(crate) fn evaluate_plain(&mut self, input: &str) -> Result<(), CalcError> {
         let mut working = self.stack.clone();
         let mut working_registers = self.registers.clone();
 
         for token in tokenize(input) {
             match token {
+                "=" | "!=" | "<" | "<=" | ">" | ">=" => {
+                    require_depth(&working, 2, token)?;
+                    let x = working.pop().expect("checked depth");
+                    let y = working.pop().expect("checked depth");
+                    let truth = match token {
+                        "=" => y == x,
+                        "!=" => y != x,
+                        "<" => y < x,
+                        "<=" => y <= x,
+                        ">" => y > x,
+                        _ => y >= x,
+                    };
+                    working.push(Number::from(u8::from(truth)));
+                }
+                "not" | "neg" | "abs" => {
+                    require_depth(&working, 1, token)?;
+                    let x = working.pop().expect("checked depth");
+                    working.push(match token {
+                        "not" => Number::from(u8::from(x == 0)),
+                        "abs" if x >= 0 => x,
+                        _ => -x,
+                    });
+                }
                 "+" | "-" | "*" | "/" => {
                     require_depth(&working, 2, token)?;
 
@@ -455,10 +570,13 @@ impl Calculator {
             let previous = Snapshot {
                 stack: std::mem::replace(&mut self.stack, working),
                 registers: std::mem::replace(&mut self.registers, working_registers),
+                macros: self.macros.clone(),
             };
 
-            push_bounded(&mut self.undo_history, previous);
-            self.redo_history.clear();
+            if !self.transient {
+                push_bounded(&mut self.undo_history, previous);
+                self.redo_history.clear();
+            }
         }
 
         Ok(())
@@ -503,7 +621,7 @@ fn validate_register_name(name: &str) -> Result<(), CalcError> {
 ///
 /// Existing exact literals are preserved. Only one trailing
 /// operator is separated from a valid numeric literal.
-fn tokenize(input: &str) -> impl Iterator<Item = &str> {
+pub(crate) fn tokenize(input: &str) -> impl Iterator<Item = &str> {
     input.split_whitespace().flat_map(|chunk| {
         let suffix = chunk.char_indices().last().and_then(|(index, last)| {
             let (number, operator) = chunk.split_at(index);

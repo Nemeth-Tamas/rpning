@@ -16,6 +16,9 @@ const MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_REGISTERS: usize = 10_000;
 
 pub fn default_register_path() -> PathBuf {
+    if let Some(path) = env::var_os("RPNING_HOME") {
+        return PathBuf::from(path).join("registers.txt");
+    }
     #[cfg(windows)]
     {
         if let Some(path) = env::var_os("APPDATA") {

@@ -7,6 +7,7 @@ use rpning::number::{Number, format_number};
 use rpning::precision::Rounding;
 use rpning::scientific::format_scientific;
 use rpning::storage;
+use rpning::{persistence, programming};
 
 mod keypad_terminal;
 
@@ -39,6 +40,11 @@ fn run() -> io::Result<()> {
 
         [flag, expression] if flag == "--eval" || flag == "-e" => evaluate_once(expression),
 
+        [flag, path] if flag == "--run" || flag == "-f" => {
+            let source = persistence::read_text(std::path::Path::new(path))?;
+            evaluate_once(&source)
+        }
+
         _ => {
             print_help();
             Err(io::Error::new(
@@ -66,6 +72,9 @@ fn repl() -> io::Result<()> {
     let interactive = stdin.is_terminal();
 
     let mut calc = Calculator::new();
+    if interactive && programming::macro_path().exists() {
+        programming::load(&mut calc, &programming::macro_path()).map_err(io::Error::other)?;
+    }
     let mut line = String::new();
     let mut had_error = false;
 
@@ -88,6 +97,26 @@ fn repl() -> io::Result<()> {
 
             ":help" => {
                 print_help();
+            }
+
+            command if programming::is_command(command) => {
+                match programming::command(&mut calc, command) {
+                    Ok(lines) => {
+                        for line in lines {
+                            println!("{line}");
+                        }
+                        if interactive {
+                            programming::save(&calc, &programming::macro_path())
+                                .map_err(io::Error::other)?;
+                        }
+                    }
+                    Err(error) => {
+                        eprintln!("error: {error}");
+                        if !interactive {
+                            had_error = true;
+                        }
+                    }
+                }
             }
 
             ":stack" => {
@@ -180,6 +209,10 @@ fn repl() -> io::Result<()> {
 
             expression => match calc.evaluate(expression) {
                 Ok(()) => {
+                    if interactive && !calc.macros().is_empty() {
+                        programming::save(&calc, &programming::macro_path())
+                            .map_err(io::Error::other)?;
+                    }
                     if let Some(top) = calc.top() {
                         println!("{}", format_for_calc(&calc, top));
                     } else {
@@ -266,6 +299,7 @@ fn print_help() {
     println!("  rpn                       Interactive calculator");
     println!("  rpn --keypad              Immediate keypad input (Windows console)");
     println!("  rpn --keypad-diagnose     Inspect focused console key events (Windows)");
+    println!("  rpn --run FILE            Execute an RPN script atomically");
     println!("  rpn --eval \"3 4 +\"          Evaluate an expression");
     println!("  rpn --help                Show help");
     println!("  rpn --version             Show version");
@@ -305,6 +339,15 @@ fn print_help() {
     println!("  :redo                     Reapply undone calculation");
     println!("  :help                     Show help");
     println!("  :quit                     Exit");
+    println!("  : NAME \"description\" BODY ;  Define a compiled macro (namespaces: math.square)");
+    println!("  :macros / :see NAME       List macros / inspect compiled instructions");
+    println!("  :alias NAME TARGET_WORD   Define an alias");
+    println!("  :trace EXPRESSION         Execute with a bounded instruction trace");
+    println!("  :import FILE / :export FILE   Merge/export macro definitions");
+    println!("  :macros-save / :macros-load   Explicit macro persistence");
+    println!("  if ... else ... then     Conditional (consume flag; zero=false)");
+    println!("  N times ... end          Counted loop; while CONDITION do BODY end");
+    println!("  let:NAME / get:NAME       Macro-local variables; = != < <= > >= not");
     println!();
     println!("Numbers are exact. Integers, fractions and decimals work.");
 }

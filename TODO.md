@@ -62,18 +62,18 @@
 
 ## M4 — Macro language
 
-- [ ] Finalize macro syntax
-- [ ] Implement tokenizer and parser
-- [ ] Compile macros to internal instructions
-- [ ] Implement macro execution engine
-- [ ] Support nested macros
-- [ ] Add aliases and namespaces
-- [ ] Add macro definitions and descriptions
-- [ ] Persist macros between sessions
-- [ ] Add macro import/export
-- [ ] Add recursion and execution limits
-- [ ] Add macro debugging and tracing
-- [ ] Add conditionals, loops and variables
+- [x] Finalize macro syntax
+- [x] Implement tokenizer and parser
+- [x] Compile macros to internal instructions
+- [x] Implement macro execution engine
+- [x] Support nested macros
+- [x] Add aliases and namespaces
+- [x] Add macro definitions and descriptions
+- [x] Persist macros between sessions
+- [x] Add macro import/export
+- [x] Add recursion and execution limits
+- [x] Add macro debugging and tracing
+- [x] Add conditionals, loops and variables
 
 ## M5 — Terminal workflow
 
@@ -82,15 +82,15 @@
 - [ ] Add tab completion
 - [ ] Add configurable number display
 - [ ] Add persistent application settings
-- [ ] Add script-file execution
-- [ ] Add helpful built-in documentation
+- [x] Add script-file execution
+- [x] Add helpful built-in documentation
 - [ ] Add programmable command shortcuts
 
 ## M6 — Physical numpad mode
 
 - [x] Select affordable standalone USB numpad
 - [x] Order CONNECT IT NumCALC CKB-0060-BK
-- [ ] Test hardware and emitted key events
+- [x] Test hardware and emitted key events
 - [x] Design dedicated keypad state machine
 - [x] Implement immediate operator execution
 - [x] Define Enter and pending-number behavior

@@ -23,10 +23,13 @@ Early functional proof of concept.
 - One-shot CLI evaluation
 - Standard-input support
 - Opt-in Windows console keypad input and key-event diagnostics
+- Compiled macros, namespaces, aliases, conditions, loops and local variables
+- Macro persistence/import/export, instruction tracing and script files
 - Unit and CLI integration tests
 
 Windows quality gates, independent numerical oracles and synthetic console
-input tests pass. Physical numpad acceptance testing remains pending.
+input tests pass. Physical numpad events and the first calculation have also
+been verified with the CONNECT IT NumCALC CKB-0060-BK.
 
 ## Building
 
@@ -175,6 +178,23 @@ error, undo, display and hardware-test behavior.
 
 
 ## Commands
+
+## Programming
+
+```text
+: square "Square X" dup * ;
+: gross "27 percent VAT" 1.27 * ;
+10000 gross
+```
+
+Macros compile to bounded instructions, support nested/recursive calls,
+`if ... else ... then`, counted/while loops and local variables. Definitions
+participate in atomic rollback and undo/redo. Use `:macros`, `:see NAME`,
+`:trace EXPRESSION`, `:alias NAME TARGET`, `:import FILE` and `:export FILE`.
+Interactive sessions save/restore macros automatically; pipes can explicitly
+use `:macros-save`/`:macros-load`. `rpn --run FILE` executes a whole RPN script.
+See [the language guide](docs/LANGUAGE.md) for syntax, examples and limits.
+
 
 ### Arithmetic
 

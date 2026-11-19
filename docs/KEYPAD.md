@@ -1,8 +1,18 @@
 # Keypad mode: first usable Windows slice
 
-The CONNECT IT NumCALC CKB-0060-BK has arrived. Its actual emitted events have
-not yet been checked. This implementation uses console-translated events and
-does not assume a particular USB identity, scan code or decimal separator.
+The CONNECT IT NumCALC CKB-0060-BK's actual emitted events were checked on
+2026-11-19, with both numeric and navigation modes. The calculation
+`12 Enter 3 + 2 *` produced X=30. This implementation uses console-translated
+events, without assuming a particular USB identity.
+
+Observed numeric-mode keys are ordinary character/number-row events. Multiply
+and add include synthetic Shift events. Decimal emits a period. The two
+bottom-row zero keys emitted three zero presses total, consistent with 0 and
+00. In navigation mode, digits become Home/Up/PageUp/Left/Right/End/Down/
+PageDown/Insert; 5 emitted no event in the capture. Decimal emits enhanced
+Delete and cancels pending entry. Every event reported NumLock=false, including
+numeric mode: mappings must use emitted events rather than that flag. The
+capture does not establish whether the device or host performs translation.
 
 ## First hardware check
 
@@ -46,7 +56,7 @@ Normal `cargo run` still starts the full command-based REPL.
 | Enter with empty entry | Duplicate X; empty stack reports an error |
 | `+ - * /` | Commit pending number and execute operator in one atomic transaction |
 | Backspace | Remove one pending character; empty entry leaves stack untouched |
-| Enhanced navigation Delete | Cancel pending entry; NumLock-off keypad Delete is ignored |
+| Enhanced Delete | Cancel pending entry, including this numpad's navigation-mode decimal |
 | `S` | Toggle pending sign, or negate X if entry is empty |
 | `C` | Clear stack and pending entry; committed stack clear is undoable |
 | Tab | Commit pending number and swap X/Y atomically |

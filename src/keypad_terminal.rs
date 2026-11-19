@@ -168,8 +168,8 @@ mod windows {
             0x0d => Some(Key::Enter),
             0x08 => Some(Key::Backspace),
             0x09 => Some(Key::Swap),
-            // An enhanced Delete is the navigation key. Do not interpret the
-            // keypad's NumLock-off Delete as a destructive editing shortcut.
+            // The tested standalone numpad also emits enhanced Delete in
+            // navigation mode. This cancels only the pending entry.
             0x2e if event.controls & ENHANCED_KEY != 0 => Some(Key::Cancel),
             _ => char::from_u32(u32::from(event.character)).and_then(character_key),
         }
@@ -355,6 +355,23 @@ mod windows {
                 "Decimal",
             ] {
                 assert!(text.contains(expected), "{text}");
+            }
+        }
+
+        #[test]
+        fn observed_numcalc_events_work_without_the_numlock_flag() {
+            for (vk, character, flags, expected) in [
+                (0x37, '7', 0, Some(Key::Digit(7))),
+                (0x30, '0', 0, Some(Key::Digit(0))),
+                (0x38, '*', 0x10, Some(Key::Multiply)),
+                (0xbb, '+', 0x10, Some(Key::Add)),
+                (0xbf, '/', 0, Some(Key::Divide)),
+                (0xbd, '-', 0, Some(Key::Subtract)),
+                (0xbe, '.', 0, Some(Key::Decimal)),
+                (0x24, '\0', 0x100, None),
+                (0x2e, '\0', 0x100, Some(Key::Cancel)),
+            ] {
+                assert_eq!(mapped_key(event(vk, character, flags)), expected);
             }
         }
     }
