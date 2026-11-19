@@ -22,9 +22,11 @@ Early functional proof of concept.
 - Interactive terminal
 - One-shot CLI evaluation
 - Standard-input support
+- Opt-in Windows console keypad input and key-event diagnostics
 - Unit and CLI integration tests
 
-Initial arithmetic CLI smoke tests have been confirmed. Full quality-gate verification for the latest slice is pending.
+Windows quality gates, independent numerical oracles and synthetic console
+input tests pass. Physical numpad acceptance testing remains pending.
 
 ## Building
 
@@ -145,9 +147,31 @@ A trailing arithmetic operator can be attached directly to a valid numeric liter
 
 This also works with exact fractions (`1/3+`), negative numbers (`-3+`), and scientific notation (`2e-3+`).
 
-Operators execute when the input line is submitted with Enter. Immediate execution on keypress will be implemented separately for dedicated keypad mode.
+In the ordinary REPL, operators execute when the input line is submitted with
+Enter. The separate `--keypad` mode executes operators immediately on keypress.
 
 For now, only a single trailing operator can be attached to a numeric literal. General whitespace-free expressions such as `3+4*` are not yet supported.
+
+### Physical numpad mode (Windows)
+
+```powershell
+cargo run -- --keypad-diagnose
+cargo run -- --keypad
+```
+
+The first command reports focused console key events for hardware testing.
+The second starts immediate keypad calculation. With NumLock on, type
+`12`, Enter, `3`, `+`, `2`, `*` to get `30` without pressing Enter after an
+operator. Both `.` and `,` enter a decimal point. Enter commits a pending
+number; Enter with no pending number duplicates X. Backspace edits the pending
+entry. Esc exits; `S` changes sign, `C` clears the stack, Tab swaps, and
+Ctrl+Z/Ctrl+Y undo/redo. An enhanced navigation Delete cancels the pending entry.
+
+This first version reads the active console, has no per-device separation, and
+does not use global keyboard hooks. Mappings/layers/macros remain future work.
+It requires interactive stdin and stdout; ordinary REPL/pipes/`--eval` retain
+their existing behavior. See [the keypad guide](docs/KEYPAD.md) for exact entry,
+error, undo, display and hardware-test behavior.
 
 
 ## Commands
@@ -227,7 +251,8 @@ net = 10000
 
 Register changes participate in atomic input-line evaluation and undo/redo. A failed line cannot partially modify registers.
 
-Registers are session-local and are not yet saved to disk.
+Registers are session-local unless explicitly saved with `:save` and restored
+with `:load`; see the storage paths below.
 
 ### Undo and redo
 

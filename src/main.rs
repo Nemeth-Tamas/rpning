@@ -8,6 +8,8 @@ use rpning::precision::Rounding;
 use rpning::scientific::format_scientific;
 use rpning::storage;
 
+mod keypad_terminal;
+
 fn main() {
     if let Err(error) = run() {
         eprintln!("error: {error}");
@@ -20,6 +22,10 @@ fn run() -> io::Result<()> {
 
     match args.as_slice() {
         [] => repl(),
+
+        [flag] if flag == "--keypad" => keypad_terminal::run(false),
+
+        [flag] if flag == "--keypad-diagnose" => keypad_terminal::run(true),
 
         [flag] if flag == "--help" || flag == "-h" => {
             print_help();
@@ -258,6 +264,8 @@ fn print_help() {
     println!();
     println!("Usage:");
     println!("  rpn                       Interactive calculator");
+    println!("  rpn --keypad              Immediate keypad input (Windows console)");
+    println!("  rpn --keypad-diagnose     Inspect focused console key events (Windows)");
     println!("  rpn --eval \"3 4 +\"          Evaluate an expression");
     println!("  rpn --help                Show help");
     println!("  rpn --version             Show version");

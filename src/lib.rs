@@ -1,4 +1,5 @@
 pub mod engine;
+pub mod keypad;
 pub mod math;
 pub mod number;
 pub mod precision;

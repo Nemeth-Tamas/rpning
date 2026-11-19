@@ -73,7 +73,7 @@ fn pi_raw(epsilon: &Real) -> Result<Real, String> {
 }
 
 fn exp_raw(x: &Real, epsilon: &Real, bits: u64) -> Result<Real, String> {
-    if abs(x) > Real::from(MAX_EXP_ARG) {
+    if abs(x) > MAX_EXP_ARG {
         return Err(format!("exp argument exceeds +/-{MAX_EXP_ARG}"));
     }
     let mut reduced = x.clone();
@@ -139,7 +139,7 @@ fn ln_raw(x: &Real, epsilon: &Real) -> Result<Real, String> {
 }
 
 fn sin_cos_raw(x: &Real, pi: &Real, epsilon: &Real) -> Result<(Real, Real), String> {
-    if abs(x) > Real::from(MAX_ANGLE) {
+    if abs(x) > MAX_ANGLE {
         return Err(format!(
             "angle exceeds +/-{MAX_ANGLE} radians; reduce it first"
         ));

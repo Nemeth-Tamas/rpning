@@ -40,7 +40,7 @@
 - [x] Add configurable rounding
 - [x] Verify exact terminating-decimal formatting and display limits
 - [x] Add scientific number formatting
-- [ ] Add independent precision reference tests
+- [x] Add independent precision reference tests
 - [x] Benchmark integer, rational and real arithmetic
 
 ## M3 — Advanced stack and mathematics
@@ -55,10 +55,10 @@
 - [x] Add integer division and remainder
 - [x] Add exponentiation and roots
 - [x] Add factorial, GCD and LCM
-- [ ] Add logarithmic and exponential functions
-- [ ] Add trigonometric functions
-- [ ] Add mathematical constants
-- [ ] Add degree/radian conversion
+- [x] Add logarithmic and exponential functions
+- [x] Add trigonometric functions
+- [x] Add mathematical constants
+- [x] Add degree/radian conversion
 
 ## M4 — Macro language
 
@@ -91,14 +91,14 @@
 - [x] Select affordable standalone USB numpad
 - [x] Order CONNECT IT NumCALC CKB-0060-BK
 - [ ] Test hardware and emitted key events
-- [ ] Design dedicated keypad state machine
-- [ ] Implement immediate operator execution
-- [ ] Define Enter and pending-number behavior
-- [ ] Implement backspace and decimal entry
+- [x] Design dedicated keypad state machine
+- [x] Implement immediate operator execution
+- [x] Define Enter and pending-number behavior
+- [x] Implement backspace and decimal entry
 - [ ] Add configurable key mappings
 - [ ] Add alternate keypad layers
 - [ ] Add programmable macro shortcuts
-- [ ] Verify normal terminal mode remains unaffected
+- [x] Verify normal terminal mode remains unaffected
 
 ## M7 — Extended mathematical environment
 
