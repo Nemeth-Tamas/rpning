@@ -403,6 +403,7 @@ mod windows {
             }
             return Outcome::Continue;
         }
+        let event = event_for_layer(event, ui.mapping.layer());
         let fallback = mapped_key(event);
         if let Some((id, navigation)) = key_identity(event) {
             ui.key(&id, navigation, fallback)
@@ -592,6 +593,38 @@ mod windows {
         }
     }
 
+    /// Alt/custom layers follow physical numpad positions in both NumLock
+    /// states. Only NUM routing uses this copy; diagnostics retain raw events.
+    /// Dedicated navigation keys are enhanced and keep their Nav identities.
+    fn event_for_layer(mut event: KeyEvent, layer: &str) -> KeyEvent {
+        if layer == "base" || event.down == 0 || event.controls & (CTRL | ALT | ENHANCED_KEY) != 0 {
+            return event;
+        }
+        let digit = match (event.virtual_key, event.scan_code) {
+            (0x24, 0x47) => Some(7), // Home
+            (0x26, 0x48) => Some(8), // Up
+            (0x21, 0x49) => Some(9), // PageUp
+            (0x25, 0x4b) => Some(4), // Left
+            (0x0c, 0x4c) => Some(5), // Clear (numpad center)
+            (0x27, 0x4d) => Some(6), // Right
+            (0x23, 0x4f) => Some(1), // End
+            (0x28, 0x50) => Some(2), // Down
+            (0x22, 0x51) => Some(3), // PageDown
+            (0x2d, 0x52) => Some(0), // Insert / either zero of 00
+            (0x2e, 0x53) => {
+                event.virtual_key = 0x6e;
+                event.character = u16::from(b'.');
+                return event;
+            }
+            _ => None,
+        };
+        if let Some(digit) = digit {
+            event.virtual_key = 0x60 + digit;
+            event.character = u16::from(b'0') + digit;
+        }
+        event
+    }
+
     fn mapped_key(event: KeyEvent) -> Option<Key> {
         if event.down == 0 {
             return None;
@@ -763,7 +796,7 @@ mod windows {
         if !diagnostic {
             writeln!(
                 out,
-                "Navigation keys use the nav layer; F2 toggles base/alt. Use :bindings in the REPL to inspect mappings."
+                "Base uses Nav for NumLock-off keys; Alt/custom layers follow physical numpad positions with NumLock on or off. F2 toggles base/alt; :bindings in the REPL lists mappings."
             )?;
             show_state(out, &pad, &map)?;
         }
@@ -776,6 +809,7 @@ mod windows {
                     break;
                 }
             } else if event.down != 0 {
+                let event = event_for_layer(event, map.layer());
                 let fallback = mapped_key(event);
                 let identity = key_identity(event);
                 if fallback.is_none() && identity.is_none() {
@@ -1069,6 +1103,111 @@ mod windows {
             ] {
                 assert_eq!(mapped_key(event(vk, character, flags)), expected);
             }
+        }
+
+        #[test]
+        fn physical_numlock_off_positions_resolve_to_alt_and_custom_digit_bindings() {
+            // Tuples transcribed from the guided physical-key report.
+            for (vk, scan, character, id) in [
+                (0x24, 0x47, '7', "7"),
+                (0x26, 0x48, '8', "8"),
+                (0x21, 0x49, '9', "9"),
+                (0x25, 0x4b, '4', "4"),
+                (0x0c, 0x4c, '5', "5"),
+                (0x27, 0x4d, '6', "6"),
+                (0x23, 0x4f, '1', "1"),
+                (0x28, 0x50, '2', "2"),
+                (0x22, 0x51, '3', "3"),
+                (0x2d, 0x52, '0', "0"),
+                (0x2e, 0x53, '.', "decimal"),
+            ] {
+                let mut raw = event(vk, '\0', 0);
+                raw.scan_code = scan;
+                for layer in ["alt", "shop"] {
+                    let routed = event_for_layer(raw, layer);
+                    assert_eq!(key_identity(routed), Some((id.to_owned(), false)));
+                    assert_eq!(mapped_key(routed), character_key(character));
+                    assert_eq!(routed.controls, raw.controls);
+                }
+                let base = event_for_layer(raw, "base");
+                assert_eq!(base.virtual_key, vk);
+                for flags in [ENHANCED_KEY, CTRL, ALT] {
+                    raw.controls = flags;
+                    assert_eq!(event_for_layer(raw, "alt").virtual_key, vk);
+                }
+            }
+        }
+
+        #[test]
+        fn alt_seven_squares_and_six_drops_in_both_measured_numlock_states() {
+            for numlock in [true, false] {
+                let mut calc = Calculator::new();
+                calc.evaluate("9").unwrap();
+                let mut ui = rpning::tui::Tui::new(calc, Config::default());
+                let mut high = None;
+                tui_event(&mut ui, event(0x71, '\0', 0), &mut high);
+                for (on_vk, off_vk, scan, ch) in [(0x67, 0x24, 0x47, '7'), (0x66, 0x27, 0x4d, '6')]
+                {
+                    let mut raw = event(
+                        if numlock { on_vk } else { off_vk },
+                        if numlock { ch } else { '\0' },
+                        if numlock { NUMLOCK_ON } else { 0 },
+                    );
+                    raw.scan_code = scan;
+                    tui_event(&mut ui, raw, &mut high);
+                    if ch == '7' {
+                        assert_eq!(ui.result(), "81");
+                        assert_eq!(ui.pad.calculator().depth(), 1);
+                    } else {
+                        assert_eq!(ui.pad.calculator().depth(), 0);
+                    }
+                    assert!(!ui.failed);
+                }
+            }
+        }
+
+        #[test]
+        fn layer_routing_preserves_base_nav_dedicated_keys_editing_and_unbound_fallback() {
+            let mut raw = event(0x24, '\0', 0);
+            raw.scan_code = 0x47;
+            let mut calc = Calculator::new();
+            calc.evaluate("9").unwrap();
+            let mut ui = rpning::tui::Tui::new(calc, Config::default());
+            let mut high = None;
+            tui_event(&mut ui, raw, &mut high); // Base Home -> Nav dup.
+            assert_eq!(ui.pad.calculator().depth(), 2);
+            tui_event(&mut ui, event(0x71, '\0', 0), &mut high);
+            raw.controls = ENHANCED_KEY;
+            tui_event(&mut ui, raw, &mut high); // Dedicated Home still Nav dup.
+            assert_eq!(ui.pad.calculator().depth(), 3);
+            ui.command_mode = true;
+            ui.command = "123".to_owned();
+            ui.cursor = 3;
+            raw.controls = 0;
+            tui_event(&mut ui, raw, &mut high); // CMD Home edits, not squares.
+            assert_eq!(ui.cursor, 0);
+            assert_eq!(ui.pad.calculator().depth(), 3);
+            ui.command_mode = false;
+            ui.focus = rpning::tui::Focus::Stack;
+            ui.stack_offset = 2;
+            tui_event(&mut ui, raw, &mut high); // Browsing Home moves to start.
+            assert_eq!(ui.stack_offset, 0);
+            assert_eq!(ui.pad.calculator().depth(), 3);
+            ui.focus = rpning::tui::Focus::Input;
+            ui.mapping
+                .config
+                .bindings
+                .remove(&("alt".to_owned(), "7".to_owned()));
+            tui_event(&mut ui, raw, &mut high); // Removed binding -> ordinary digit.
+            assert_eq!(ui.pad.pending(), "7");
+            ui.pad.handle(Key::Cancel).unwrap();
+            ui.mapping.config.bind("base", "l", "@layer:shop").unwrap();
+            ui.mapping.config.bind("shop", "7", "2 *").unwrap();
+            ui.key("layer", false, None); // Back to base.
+            ui.key("l", false, None);
+            tui_event(&mut ui, raw, &mut high);
+            assert_eq!(ui.result(), "18");
+            assert_eq!(ui.pad.calculator().depth(), 3);
         }
     }
 }

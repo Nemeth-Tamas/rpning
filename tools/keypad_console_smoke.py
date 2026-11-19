@@ -49,8 +49,8 @@ class CursorInfo(ctypes.Structure):
 
 
 def record(vk: int, char: str = "\0", flags: int = 0x20,
-           repeat: int = 1, down: bool = True) -> InputRecord:
-    return InputRecord(1, Event(key=KeyEvent(down, repeat, vk, 0x53, ord(char), flags)))
+           repeat: int = 1, down: bool = True, scan: int = 0x53) -> InputRecord:
+    return InputRecord(1, Event(key=KeyEvent(down, repeat, vk, scan, ord(char), flags)))
 
 
 def worker(executable: Path) -> None:
@@ -133,7 +133,7 @@ def worker(executable: Path) -> None:
         ], ["repeat=3 vk=0x006E scan=0x0053 unicode=U+002C", "up  ", "numlock=false", "enhanced=true", "Some(Enter)"])
         exercise("--keypad", [
             record(0x34, "4", flags=0), record(0x0d, "\r"),
-            record(0x71), record(0x37, "7", flags=0),
+            record(0x71), record(0x24, flags=0, scan=0x47),
             record(0x23, flags=0x100), record(0x43, "\x03", flags=0x08),
         ], ["X=16", "layer=alt", "X=4"])
 
@@ -228,6 +228,24 @@ def worker(executable: Path) -> None:
                 return text[3 * info.size.x:4 * info.size.x].strip() == expected
 
             wait_frame(lambda text, info: "RESULT X" in text and "STACK" in text and "HISTORY" in text)
+            # Raw tuples measured by the user's guided report: NumLock-off
+            # Home/Right must use physical Alt-7/6, not Nav dup/sqrt.
+            send(text("9") + [enter, record(0x71), record(0x24, flags=0, scan=0x47)])
+            wait_frame(lambda text, info: result_is(text, info, "81") and "STACK [1]" in text and "layer=alt" in text)
+            send([record(0x24, flags=0x100, scan=0x47)])  # Dedicated Home -> Nav dup.
+            wait_frame(lambda text, info: result_is(text, info, "81") and "STACK [2]" in text)
+            send([record(0x27, flags=0, scan=0x4d)])
+            wait_frame(lambda text, info: result_is(text, info, "81") and "STACK [1]" in text)
+            send([record(0x27, flags=0, scan=0x4d)])
+            wait_frame(lambda text, info: "STACK [0]" in text)
+            send([record(0x71)] + text("9") + [enter, record(0x71), record(0x0c, flags=0, scan=0x4c)])
+            wait_frame(lambda text, info: result_is(text, info, "9") and "STACK [2]" in text)
+            send([record(0x26, flags=0, scan=0x48)])
+            wait_frame(lambda text, info: result_is(text, info, "3") and "STACK [2]" in text)
+            send([record(0x2e, flags=0, scan=0x53)])  # Physical decimal -> pi, not cancel.
+            wait_frame(lambda text, info: "STACK [3]" in text and "pi" in text)
+            send([record(0x71)] + text("c"))
+            wait_frame(lambda text, info: "STACK [0]" in text and "layer=base" in text)
             send(text("12") + [enter] + text("3+2*"))
             wait_frame(lambda text, info: result_is(text, info, "30"))
             send(text("0/"))
@@ -292,7 +310,7 @@ def worker(executable: Path) -> None:
             if child.poll() is None:
                 child.kill()
                 child.wait()
-    print("PASS: 7 isolated Windows console sessions; explicit REPL/default TUI, redirected output, live frames, setting discovery, full completion, layer help, errors, recall, undo, resize and restoration")
+    print("PASS: 7 isolated Windows console sessions; measured NumLock-off Alt positions, dedicated Nav keys, explicit REPL/default TUI, redirected output, setting discovery, layer help, errors, recall, undo, resize and restoration")
 
 
 def main() -> None:

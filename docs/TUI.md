@@ -11,8 +11,8 @@ other topics jump to the relevant section. F6 focuses the output for scrolling.
 
 ## Launch and first calculation
 
-Download [rpning v0.2.0](https://github.com/Nemeth-Tamas/rpning/releases/tag/v0.2.0)
-for a ready-to-run binary, or build from source below. The v0.2.0 Windows
+Download [rpning v0.2.1](https://github.com/Nemeth-Tamas/rpning/releases/tag/v0.2.1)
+for a ready-to-run binary, or build from source below. The v0.2.1 Windows
 binary includes the TUI, extended mathematics and both embedded guides.
 
 ```powershell
@@ -176,10 +176,16 @@ The physical Alt modifier is not needed and does not select this layer.
 
 **Base** provides normal numeric entry. **Alt** replaces the digit and decimal
 keys with quick calculations. Unbound keys in either layer keep their ordinary
-Base fallback. **Nav** handles emitted navigation events, such as NumLock-off
-Home/Up/Delete, whenever NUM input has focus. It overrides the selected character
-layer for those events. NumLock flags are not trusted; actual key identities
-select nav. Use NumLock on when entering numbers.
+Base fallback. **Base** uses the **Nav** bindings for NumLock-off numpad events.
+**Alt and custom layers follow physical numpad positions with NumLock ON or
+OFF**, using measured virtual-key/scan-code pairs. Thus physical 7 remains
+Alt-square and physical 6 remains Alt-drop, even when they emit Home/Right.
+Dedicated enhanced navigation keys still use Nav. NUM input must have focus;
+browsing and CMD editing retain their own navigation controls. Use NumLock ON
+for ordinary Base number entry; routing does not rely on the NumLock flag alone.
+
+To cancel pending input in Alt with NumLock OFF, use Ctrl+Z or the dedicated
+Delete key. The physical numpad decimal/Delete position remains the Alt pi key.
 
 ### Complete default Base and Alt mappings
 
@@ -202,7 +208,7 @@ select nav. Use NumLock on when entering numbers.
 | S | Pending sign / negate X | Same Base fallback |
 | C | Clear stack and pending input | Same Base fallback |
 | Tab | Commit pending entry and swap X/Y | Same Base fallback |
-| Delete | Nav `@cancel` | Nav `@cancel` |
+| Dedicated Delete | Nav `@cancel` | Nav `@cancel` |
 | F1..F6, Ctrl+Z/Y, Esc/Ctrl+C | Global TUI controls | Same global controls |
 
 Bound expressions commit pending input first. For example, enter 9 in Base,
@@ -222,7 +228,7 @@ Avoid expecting a separate `00` binding.
 | Up / 8 | `swap` |
 | PageUp / 9 | `drop` |
 | Left / 4 | `neg` |
-| Center / 5 | No navigation event observed; no default mapping |
+| Center / 5 | Clear event emitted; no Base/Nav action assigned |
 | Right / 6 | `sqrt` |
 | End / 1 | `@undo` |
 | Down / 2 | `@redo` |
@@ -268,7 +274,8 @@ Custom layers can use `@layer:NAME` actions:
 ```
 
 Press L in NUM/Base to select finance; its 7 applies 1.27 times X/pending entry.
-Press L or F2 to return. Navigation events still select Nav. Supported actions:
+Press L or F2 to return. Physical numpad positions use the custom layer in both
+NumLock states; dedicated navigation keys still select Nav. Supported actions:
 `@enter`, `@undo`, `@redo`, `@sign`, `@cancel`, `@clear`, `@swap`,
 `@backspace`, `@quit`, `@layer:NAME`, `@shortcut:NAME`. Direct expressions can
 call compiled macros but cannot define a macro as a binding/shortcut body.

@@ -1,15 +1,20 @@
 
 # rpning — Development Roadmap
 
+Hotfix checkpoint: v0.2.1 corrects physical Alt/custom numpad routing with
+NumLock OFF, with measured-event and live-console regressions. Existing task
+labels and unchecked M2/M7/manual-platform work remain unchanged.
+
 Release checkpoint: v0.2.0 packages the implemented M7 batch and Windows M9
 TUI, setting discovery and full embedded guides. Its release pipeline builds
 Windows/Linux/macOS binaries and checksums after all gates pass. The original
 v0.1.0 release and all remaining unchecked tasks are preserved.
 
-Keypad follow-up: a read-only guided Python diagnostic captures all 18 physical
-keys with NumLock ON/OFF, groups 00 bursts and includes saved mappings. Current
-mapping behavior is preserved pending the user's physical report; Alt-7 was
-reported as dup and Alt-6 as sqrt. Do not mark the mapping defect resolved yet.
+Keypad follow-up: the complete guided report confirmed that NumLock-off Home/
+Right events overrode Alt-7/6. Alt/custom routing now follows measured physical
+numpad positions in both states; Base/Nav, dedicated navigation, CMD editing
+and pane browsing retain their behavior. Raw diagnostics and saved bindings
+are preserved. Regression checks replay the measured events.
 
 ## M0 — Project foundation
 

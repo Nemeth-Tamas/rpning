@@ -3,7 +3,7 @@
 
 A fast, exact, programmable Reverse Polish Notation calculator written in Rust.
 
-**[Download rpning 0.2.0](https://github.com/Nemeth-Tamas/rpning/releases/tag/v0.2.0)**
+**[Download rpning 0.2.1](https://github.com/Nemeth-Tamas/rpning/releases/tag/v0.2.1)**
 for Windows x64, Linux x64 or macOS ARM64. Prebuilt binaries need no Rust
 installation. See [INSTALL.txt](INSTALL.txt) for first-run/source-build steps;
 SHA256SUMS.txt accompanies the downloads. The release passed all three
@@ -13,10 +13,10 @@ The goal is to combine traditional stack-based calculation with arbitrary-precis
 
 ## Current implementation
 
-Version 0.2.0 includes the first M7 batch: base-prefixed
+Version 0.2.1 includes the first M7 batch: base-prefixed
 integer input/output, bitwise and fixed-width conversions, counted exact
 statistics, combinations/permutations and binomial probabilities. See
-[extended mathematics](docs/EXTENDED.md). The v0.2.0 downloads include these
+[extended mathematics](docs/EXTENDED.md). The v0.2.1 downloads include these
 features and the Windows TUI; the original v0.1.0 remains available separately.
 
 The Windows calculator TUI is the default interactive mode with

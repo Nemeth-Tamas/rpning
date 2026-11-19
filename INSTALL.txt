@@ -1,10 +1,10 @@
-rpning 0.2.0 - Installation and first run
+rpning 0.2.1 - Installation and first run
 Repository: https://github.com/Nemeth-Tamas/rpning
 Releases: https://github.com/Nemeth-Tamas/rpning/releases
 
 RUN A PREBUILT BINARY
 Download the binary matching your operating system and architecture from the
-v0.2.0 release. Rust is not needed to run a prebuilt binary. SHA256SUMS.txt
+v0.2.1 release. Rust is not needed to run a prebuilt binary. SHA256SUMS.txt
 contains SHA-256 checksums.
 
 Windows x64:
@@ -36,10 +36,10 @@ Windows executable:
   .\target\release\rpn.exe --keypad-diagnose
   .\target\release\rpn.exe --run examples/invoice.rpn
 
-Version 0.2.0 starts the TUI by default on a Windows terminal. F5 switches
+Version 0.2.1 starts the TUI by default on a Windows terminal. F5 switches
 NUM/CMD input; F2 toggles Base/Alt; F3 changes focus; F4 switches stack/history;
 F6 browses complete command/help output. --repl keeps the ordinary line editor.
-Pipes and redirected output use plain line input. The v0.2.0 binaries include
+Pipes and redirected output use plain line input. The v0.2.1 binaries include
 the TUI, extended math and embedded guides. Older v0.1.0 binaries predate them.
 In CMD, :display without an argument shows current/allowed values; Tab offers
 setting-argument completion. :help tui and :help program open embedded guides.

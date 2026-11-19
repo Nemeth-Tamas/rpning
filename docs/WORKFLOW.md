@@ -80,10 +80,11 @@ and `:shortcuts` lists it. Bindings call macros directly or `@shortcut:NAME`.
 manage mappings. Expressions can use arithmetic/control flow, but cannot
 define macros. Macro references resolve at execution time.
 
-Layers: base for normal numeric input, alt (F2 toggles base/alt), nav selected
-automatically for navigation events, or any custom named layer. Reported
-NumLock flags are not used. `@layer:NAME` selects a character-key layer;
-navigation events still use nav. Esc/Ctrl+C always exit keypad mode. Other
+Layers: base for normal numeric input, alt (F2 toggles base/alt), and custom
+named layers. Base uses nav bindings for NumLock-off numpad events. Alt/custom
+layers follow physical numpad positions in either NumLock state using measured
+key/scan-code pairs; dedicated enhanced navigation keys retain Nav behavior.
+`@layer:NAME` selects a custom layer. Esc/Ctrl+C always exit keypad mode. Other
 actions: `@enter`, `@undo`, `@redo`, `@sign`, `@cancel`, `@clear`, `@swap`,
 `@backspace`, `@quit`. Unknown/unbound keys retain ordinary keypad behavior.
 

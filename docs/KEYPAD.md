@@ -14,7 +14,7 @@ numpad key once, then wait for the next prompt. It captures /, *, Backspace,
 7, 8, 9, -, 4, 5, 6, +, 1, 2, 3, Enter, 0, 00 and decimal, in that order.
 Repeat after setting NumLock OFF and pressing F10. A single 00 press is captured
 as one burst, retaining all emitted zero events. Use main-keyboard F8 to skip
-a silent key (often NumLock-off 5); it does not silently advance on a timeout.
+a silent key; it does not silently advance on a timeout.
 Esc/Ctrl+C aborts with a partial report. Console input mode is restored.
 
 The report includes physical prompt labels, timing, keydown/up/repeat, virtual
@@ -32,14 +32,20 @@ The CONNECT IT NumCALC CKB-0060-BK's actual emitted events were checked on
 `12 Enter 3 + 2 *` produced X=30. This implementation uses console-translated
 events, without assuming a particular USB identity.
 
-Observed numeric-mode keys are ordinary character/number-row events. Multiply
-and add include synthetic Shift events. Decimal emits a period. The two
-bottom-row zero keys emitted three zero presses total, consistent with 0 and
-00. In navigation mode, digits become Home/Up/PageUp/Left/Right/End/Down/
-PageDown/Insert; 5 emitted no event in the capture. Decimal emits enhanced
-Delete and cancels pending entry. Every event reported NumLock=false, including
-numeric mode: mappings must use emitted events rather than that flag. The
-capture does not establish whether the device or host performs translation.
+The complete guided capture on 2026-11-19 confirmed standard numpad virtual
+keys and character digits with NumLock ON. Decimal reports comma. With NumLock
+OFF the positions emit Home/Up/PageUp/Left/Clear/Right/End/Down/PageDown/Insert/
+Delete, with NUL characters and no enhanced flag; the reported NumLock flag
+tracks the requested states in this capture. The 00 key emits two 0 events
+with NumLock ON or two Insert events with it OFF. Earlier captures used a
+different console translation and remain covered by existing regressions.
+
+Alt/custom layers now resolve those measured non-enhanced navigation events
+back to physical digit/decimal positions before looking up bindings. Thus
+Alt-7 squares and Alt-6 drops in both states, and a removed Alt binding falls
+back to ordinary entry. Base retains Nav shortcuts with NumLock OFF; dedicated
+enhanced navigation keys, CMD editing, pane browsing and raw diagnostics are
+unchanged. The capture identifies console events, not a particular USB device.
 
 ## First hardware check
 

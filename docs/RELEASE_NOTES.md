@@ -1,9 +1,23 @@
-# rpning 0.2.0 - TUI and extended mathematics
+# rpning 0.2.1 - NumLock-independent Alt keypad layers
+
+## Patch fixes
+
+- Fix physical Alt-7 running Nav duplicate and Alt-6 running Nav square root
+  when NumLock was OFF. Alt/custom layers now use physical numpad positions
+  in both NumLock states, based on measured virtual-key/scan-code pairs.
+- Cover all digit/decimal positions, including center Clear and both events
+  emitted by the 00 key. Removed bindings retain ordinary numeric fallback.
+- Preserve Base/Nav shortcuts, dedicated enhanced navigation keys, TUI pane
+  browsing, CMD editing and raw diagnostics. Saved mappings are not rewritten.
+- Include the guided Python key-report wizard in the source repository.
+
+All v0.2.0 features remain available below. Replace the executable to upgrade;
+no settings migration is needed. Existing release tags are preserved.
 
 A new calculator screen, discoverable settings and a complete embedded manual.
 Download the binary for your platform; Rust is not needed to run it.
 
-## What's new
+## Included calculator features
 
 - **Windows TUI by default:** committed result and editable input above a live
   stack and calculation journal. Wide terminals show both lower panes; narrow
@@ -50,9 +64,9 @@ These platforms retain their ordinary REPL; TUI/keypad adapters are Windows-only
 
 ## Guides and upgrading
 
-- [TUI user guide and full Base/Alt/Nav layer tables](https://github.com/Nemeth-Tamas/rpning/blob/v0.2.0/docs/TUI.md)
-- [Complete program guide: mathematics, settings, registers, macros, advanced programming, scripts and persistence](https://github.com/Nemeth-Tamas/rpning/blob/v0.2.0/docs/PROGRAM_GUIDE.md)
-- [Installation instructions](https://github.com/Nemeth-Tamas/rpning/blob/v0.2.0/INSTALL.txt)
+- [TUI user guide and full Base/Alt/Nav layer tables](https://github.com/Nemeth-Tamas/rpning/blob/v0.2.1/docs/TUI.md)
+- [Complete program guide: mathematics, settings, registers, macros, advanced programming, scripts and persistence](https://github.com/Nemeth-Tamas/rpning/blob/v0.2.1/docs/PROGRAM_GUIDE.md)
+- [Installation instructions](https://github.com/Nemeth-Tamas/rpning/blob/v0.2.1/INSTALL.txt)
 
 Replace the old executable with the new binary. Existing settings, mappings,
 macros and explicit register files use the same formats and state directory.
@@ -62,7 +76,7 @@ The v0.1.0 release remains available under its original tag.
 
 ## Validation and current limits
 
-Local Windows validation passed 137 Rust tests, strict Clippy, 1140 independent
+Local Windows validation passed 140 Rust tests, strict Clippy, 1140 independent
 Fraction rounding checks, 477 independent Decimal comparisons and seven isolated
 console sessions, including live TUI frames, settings, guides, redirected output,
 resize handling and terminal restoration. The release pipeline repeats checks

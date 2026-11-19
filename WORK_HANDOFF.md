@@ -1,16 +1,21 @@
 # rpning development checkpoint
 
-## Physical-key diagnostic pending
+## Physical keypad layer correction (0.2.1)
 
-The user reports Alt-7 invokes dup and Alt-6 invokes sqrt. These resemble Nav
-Home/Right actions; await measured events rather than changing mapping policy.
-tools/keypad_guided_diagnostic.py prompts all 18 physical keys in the requested
-order with NumLock ON then OFF, records raw event bursts and saved bindings,
-and prints/saves a pasteable report. F10 starts each pass; F8 skips silent keys;
-Esc/Ctrl+C saves a partial report. No Rust rebuild or mappings/settings changes.
-Its --self-test uses a new hidden console for raw identity, 00, skip, abort and
-mode-restoration checks. Next step: read the user's report, then fix and test
-the character/navigation identity conflict against actual events.
+The guided report confirmed correct saved Alt bindings but NumLock-off 7/6
+emit non-enhanced Home/Right with scans 0x47/0x4d, selecting Nav dup/sqrt.
+event_for_layer in src/keypad_terminal.rs now resolves measured non-enhanced
+numpad navigation pairs to digit/decimal positions for Alt/custom layers.
+Both TUI and --keypad use it. Base/Nav behavior, dedicated enhanced keys,
+CMD editing and pane browsing are retained. Unbound layer keys retain ordinary
+numeric fallback. Center emits Clear (0x0c/0x4c); 00 emits two zero/Insert pairs.
+Raw diagnostics stay untouched and no saved settings/mappings are rewritten.
+Regression tests cover all 11 positions, both NumLock modes, Alt-7 square,
+Alt-6 drop, custom layers, fallback, dedicated keys and UI focus behavior.
+The isolated console smoke test replays measured Home/Right/Clear/Up/Delete
+events in the running TUI. The guided Python diagnostic remains available. The package and latest download
+instructions target v0.2.1; release: commits run all platform gates before
+publishing new binaries/checksums. Preserve the existing v0.2.0 release.
 
 ## Release 0.2.0
 

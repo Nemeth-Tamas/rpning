@@ -26,8 +26,8 @@ Contents:
 
 ## Starting the program
 
-These instructions describe rpning v0.2.0, including extended mathematics and
-the Windows TUI. Download a [prebuilt binary](https://github.com/Nemeth-Tamas/rpning/releases/tag/v0.2.0)
+These instructions describe rpning v0.2.1, including extended mathematics and
+the Windows TUI. Download a [prebuilt binary](https://github.com/Nemeth-Tamas/rpning/releases/tag/v0.2.1)
 or build from source:
 
 ```powershell
@@ -428,8 +428,9 @@ One-shot scripts start fresh and do not automatically load or save app state.
 
 The [TUI layer guide](TUI.md#keypad-layers) lists every default mapping.
 An Alt layer is a persistent F2 toggle, not holding the keyboard Alt modifier.
-Navigation events use the nav layer even when a different character layer is
-active. Browsing panes reserve navigation keys for browsing.
+Base uses Nav for NumLock-off numpad events. Alt/custom layers use the physical
+numpad digit/decimal positions in either NumLock state; dedicated enhanced
+navigation keys still use Nav. Browsing panes reserve navigation for browsing.
 
 ```text
 : price.gross 1.27 * ;
@@ -557,7 +558,7 @@ compositions of implemented operations; they do not introduce new value types.
 | --- | --- |
 | Digits execute unexpected operations | Check footer layer; F2 returns Alt/custom to base; F1 focuses input; F5 selects NUM |
 | Arrows do maths rather than browse | Focus Stack/History/Output with F3/F6; input-focus navigation uses nav bindings |
-| Number remains in NUM while using CMD | Commit with NUM Enter or cancel with NUM Delete before changing workflows |
+| Number remains in NUM while using CMD | Commit with NUM Enter, or cancel pending entry with Ctrl+Z/dedicated Delete before changing workflows |
 | A display value ends with an ellipsis | Stored value is intact; focus Result and scroll horizontally, or use fraction output in REPL |
 | `root is not rational` | Exact-root policy rejects irrational results; changing precision does not add approximate sqrt |
 | Transcendental precision error | Set precision to at most 512 for pi/e/logs/trig/conversions |
