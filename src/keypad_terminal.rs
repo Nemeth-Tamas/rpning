@@ -335,6 +335,7 @@ mod windows {
                 return Outcome::Continue;
             }
             0x73 => {
+                ui.show_output = false;
                 ui.show_history = !ui.show_history;
                 ui.focus = if ui.show_history {
                     Focus::History
@@ -345,6 +346,10 @@ mod windows {
             }
             0x74 => {
                 ui.toggle_command();
+                return Outcome::Continue;
+            }
+            0x75 => {
+                ui.focus_output();
                 return Outcome::Continue;
             }
             _ => {}
@@ -443,6 +448,7 @@ mod windows {
             }
             let size = event_size.unwrap_or(measured);
             if dirty || size != previous_size {
+                ui.resize(size.0.saturating_sub(1));
                 draw_tui(&mut out, &ui, size)?;
                 previous_size = size;
                 dirty = false;

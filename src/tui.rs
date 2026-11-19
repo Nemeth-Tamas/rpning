@@ -15,6 +15,7 @@ pub enum Focus {
     Stack,
     History,
     Result,
+    Output,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tone {
@@ -51,6 +52,11 @@ pub struct Tui {
     pub history_offset: usize,
     pub value_offset: usize,
     pub show_history: bool,
+    pub output: Vec<String>,
+    pub output_title: String,
+    pub output_offset: usize,
+    pub show_output: bool,
+    viewport_width: usize,
 }
 
 impl Tui {
@@ -70,6 +76,11 @@ impl Tui {
             history_offset: 0,
             value_offset: 0,
             show_history: false,
+            output: Vec::new(),
+            output_title: "Command output".to_owned(),
+            output_offset: 0,
+            show_output: false,
+            viewport_width: 100,
         }
     }
     pub fn result(&self) -> String {
@@ -107,8 +118,10 @@ impl Tui {
             Focus::Input => Focus::Stack,
             Focus::Stack => Focus::History,
             Focus::History => Focus::Result,
-            Focus::Result => Focus::Input,
+            Focus::Result => Focus::Output,
+            Focus::Output => Focus::Input,
         };
+        self.show_output = self.focus == Focus::Output;
         if self.focus == Focus::History {
             self.show_history = true;
         }
@@ -140,8 +153,59 @@ impl Tui {
                     .saturating_add_signed(delta)
                     .min(self.result().chars().count().saturating_sub(1))
             }
+            Focus::Output => {
+                self.output_offset = self.output_offset.saturating_add_signed(delta).min(
+                    self.output_lines(self.viewport_width)
+                        .len()
+                        .saturating_sub(1),
+                );
+            }
             Focus::Input => {}
         }
+    }
+    pub fn resize(&mut self, width: usize) {
+        let width = width.clamp(1, 400);
+        if width != self.viewport_width {
+            self.viewport_width = width;
+            self.output_offset = 0;
+        }
+    }
+    pub fn focus_output(&mut self) {
+        self.focus = Focus::Output;
+        self.show_output = true;
+    }
+    fn output_lines(&self, width: usize) -> Vec<String> {
+        let width = width.saturating_sub(2).max(1);
+        self.output
+            .iter()
+            .flat_map(|line| {
+                let chars: Vec<_> = line
+                    .chars()
+                    .map(|c| if c.is_control() { ' ' } else { c })
+                    .collect();
+                if chars.is_empty() {
+                    vec![String::new()]
+                } else {
+                    chars
+                        .chunks(width)
+                        .map(|part| part.iter().collect())
+                        .collect()
+                }
+            })
+            .collect()
+    }
+    fn show_lines(&mut self, title: &str, lines: Vec<String>) -> String {
+        self.output_title = title.to_owned();
+        self.output = if lines.is_empty() {
+            vec!["(no entries)".to_owned()]
+        } else {
+            lines
+        };
+        self.output_offset = 0;
+        self.show_output = true;
+        format!(
+            "{title} - F6 focuses output; arrows/PageUp/PageDown scroll; F4 returns to stack/history"
+        )
     }
     pub fn recall(&mut self) {
         if let Some(entry) = self.journal.get(self.history_offset) {
@@ -178,29 +242,38 @@ impl Tui {
         }
     }
     pub fn complete(&mut self) {
+        if self.cursor == self.command.chars().count()
+            && workflow::setting_help(self.pad.calculator(), &self.mapping.config, &self.command)
+                .is_some()
+        {
+            self.command.push(' ');
+            self.cursor += 1;
+        }
         let before: String = self.command.chars().take(self.cursor).collect();
         let start = before
             .rfind(char::is_whitespace)
             .map_or(0, |index| index + 1);
-        let prefix = &before[start..];
-        let words: Vec<_> = workflow::completions(self.pad.calculator())
-            .into_iter()
-            .filter(|word| word.starts_with(prefix))
-            .collect();
+        let words = workflow::completion_candidates(self.pad.calculator(), &before);
         if words.len() == 1 {
-            let end = before.len();
+            let end = self.command[before.len()..]
+                .find(char::is_whitespace)
+                .map_or(self.command.len(), |offset| before.len() + offset);
             self.command.replace_range(start..end, &words[0]);
             self.cursor = before[..start].chars().count() + words[0].chars().count();
+            self.show_output = false;
         } else {
             self.message = if words.is_empty() {
                 "No completion".to_owned()
             } else {
-                words.into_iter().take(12).collect::<Vec<_>>().join("  ")
+                self.show_lines("Completions", words)
             };
             self.failed = false;
         }
     }
     pub fn key(&mut self, id: &str, navigation: bool, fallback: Option<Key>) -> Outcome {
+        if id != "layer" {
+            self.show_output = false;
+        }
         let layer = if navigation {
             "nav"
         } else {
@@ -282,6 +355,7 @@ impl Tui {
             return Outcome::Quit;
         }
         self.history.record(&source);
+        self.show_output = false;
         let result = self.execute(&source);
         if result.is_ok() {
             self.command.clear();
@@ -293,14 +367,99 @@ impl Tui {
     }
     fn execute(&mut self, source: &str) -> Result<String, String> {
         match source {
-            ":undo" | "@undo" => { self.pad.handle(Key::Undo)?; return Ok(self.result()); }
-            ":redo" | "@redo" => { self.pad.handle(Key::Redo)?; return Ok(self.result()); }
-            ":stack" => { self.focus = Focus::Stack; self.show_history = false; return Ok("Stack focused".to_owned()); }
-            ":history" => { self.focus = Focus::History; self.show_history = true; return Ok("History focused".to_owned()); }
-            ":help" => return Ok("F3 focus | F4 lower tab | F5 command/numeric | Tab complete | Enter recall in history | Esc exit".to_owned()),
-            ":save" => { storage::save(&storage::default_register_path(), self.pad.calculator().registers()).map_err(|e| e.to_string())?; return Ok("Saved registers".to_owned()); }
-            ":load" => { let values = storage::load(&storage::default_register_path()).map_err(|e| e.to_string())?; self.pad.calculator_mut().restore_registers(values).map_err(|e| e.to_string())?; return Ok("Loaded registers".to_owned()); }
+            ":undo" | "@undo" => {
+                self.pad.handle(Key::Undo)?;
+                return Ok(self.result());
+            }
+            ":redo" | "@redo" => {
+                self.pad.handle(Key::Redo)?;
+                return Ok(self.result());
+            }
+            ":stack" => {
+                self.focus = Focus::Stack;
+                self.show_history = false;
+                return Ok("Stack focused".to_owned());
+            }
+            ":history" => {
+                self.focus = Focus::History;
+                self.show_history = true;
+                return Ok("History focused".to_owned());
+            }
+            ":registers" => {
+                let lines = self
+                    .pad
+                    .calculator()
+                    .registers()
+                    .map(|(name, value)| {
+                        format!(
+                            "{name} = {}",
+                            self.mapping
+                                .config
+                                .display
+                                .format(value, self.pad.calculator().settings().rounding)
+                        )
+                    })
+                    .collect();
+                return Ok(self.show_lines("Registers", lines));
+            }
+            ":save" => {
+                storage::save(
+                    &storage::default_register_path(),
+                    self.pad.calculator().registers(),
+                )
+                .map_err(|e| e.to_string())?;
+                return Ok("Saved registers".to_owned());
+            }
+            ":load" => {
+                let values =
+                    storage::load(&storage::default_register_path()).map_err(|e| e.to_string())?;
+                self.pad
+                    .calculator_mut()
+                    .restore_registers(values)
+                    .map_err(|e| e.to_string())?;
+                return Ok("Loaded registers".to_owned());
+            }
             _ => {}
+        }
+        if source.split_whitespace().next() == Some(":help") {
+            let topic = source.strip_prefix(":help").unwrap().trim();
+            let text = match topic {
+                "" => {
+                    "TUI: F1 input | F2 layer | F3 focus | F4 stack/history | F5 numeric/command | F6 output\nEnter in History recalls; Enter in input executes. Ctrl+Z/Y undo/redo; Esc exits.\n:help tui - full TUI guide\n:help program - full program reference\n:help layers - Base/Alt/nav mappings and customization\n:help settings | :help math | :help stack | :help registers\n:help macros | :help scripts | :help persistence\n:display / :mode / :precision / :round - current value and allowed values\n:bindings - configured mappings; :history TEXT - saved command search"
+                }
+                "tui" => include_str!("../docs/TUI.md"),
+                "program" => include_str!("../docs/PROGRAM_GUIDE.md"),
+                "layers" => guide_section(include_str!("../docs/TUI.md"), "Keypad layers"),
+                "settings" => guide_section(
+                    include_str!("../docs/PROGRAM_GUIDE.md"),
+                    "Settings and display",
+                ),
+                "math" => guide_section(
+                    include_str!("../docs/PROGRAM_GUIDE.md"),
+                    "Mathematics reference",
+                ),
+                "stack" => guide_section(
+                    include_str!("../docs/PROGRAM_GUIDE.md"),
+                    "Stack and transactions",
+                ),
+                "registers" => {
+                    guide_section(include_str!("../docs/PROGRAM_GUIDE.md"), "Named registers")
+                }
+                "macros" => guide_section(
+                    include_str!("../docs/PROGRAM_GUIDE.md"),
+                    "Macros and programming",
+                ),
+                "scripts" => guide_section(
+                    include_str!("../docs/PROGRAM_GUIDE.md"),
+                    "Scripts and automation",
+                ),
+                "persistence" => guide_section(
+                    include_str!("../docs/PROGRAM_GUIDE.md"),
+                    "Persistence and files",
+                ),
+                _ => return Err("Unknown help topic; use :help".to_owned()),
+            };
+            return Ok(self.show_lines(source, text.lines().map(str::to_owned).collect()));
         }
         if let Some(action) = source.strip_prefix('@') {
             let (id, fallback) = match action {
@@ -317,28 +476,28 @@ impl Tui {
             return Ok(self.result());
         }
         if workflow::is_command(source) {
-            return workflow::command(
+            let lines = workflow::command(
                 self.pad.calculator_mut(),
                 &mut self.mapping.config,
                 &mut self.history,
                 source,
-            )
-            .map(|lines| lines.join(" | "));
+            )?;
+            return Ok(self.show_lines(source, lines));
         }
         if programming::is_command(source) {
-            return programming::command(self.pad.calculator_mut(), source)
-                .map(|lines| lines.join(" | "));
+            let lines = programming::command(self.pad.calculator_mut(), source)?;
+            return Ok(self.show_lines(source, lines));
         }
-        if source == ":settings"
-            || [":precision ", ":round ", ":mode ", ":display "]
-                .iter()
-                .any(|prefix| source.starts_with(prefix))
-        {
-            return workflow::configure_numeric(
+        if workflow::is_numeric_command(source) {
+            let message = workflow::configure_numeric(
                 self.pad.calculator_mut(),
                 &mut self.mapping.config,
                 source,
-            );
+            )?;
+            if message.contains('\n') {
+                return Ok(self.show_lines(source, message.lines().map(str::to_owned).collect()));
+            }
+            return Ok(message);
         }
         self.pad.execute_expression(source)?;
         Ok(self.result())
@@ -405,6 +564,31 @@ impl Tui {
             format!("  NUM › {}", self.pad.pending())
         };
         push(input, Tone::Input);
+        let hints = if self.command_mode {
+            workflow::setting_help(
+                self.pad.calculator(),
+                &self.mapping.config,
+                self.command.split_whitespace().next().unwrap_or(""),
+            )
+            .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        let mut hint_rows = 0;
+        // Leave room for at least two lower-pane rows in small terminals.
+        for hint in hints.iter().take(height.saturating_sub(13).min(3)) {
+            let chars: Vec<_> = hint.chars().collect();
+            for part in chars.chunks(width.saturating_sub(2).max(1)) {
+                if hint_rows >= height.saturating_sub(13).min(5) {
+                    break;
+                }
+                push(
+                    format!("  {}", part.iter().collect::<String>()),
+                    Tone::Muted,
+                );
+                hint_rows += 1;
+            }
+        }
         push(
             format!(
                 "  {}{}",
@@ -431,7 +615,12 @@ impl Tui {
         );
         let history_title = format!(" HISTORY [{}] newest first", self.journal.len());
         push(
-            if wide {
+            if self.show_output {
+                format!(
+                    " OUTPUT: {} [F6 focus, F4 stack/history]",
+                    self.output_title
+                )
+            } else if wide {
                 format!("{}│{}", pad(&stack_title, split), history_title)
             } else if self.show_history {
                 history_title
@@ -440,7 +629,13 @@ impl Tui {
             },
             Tone::Accent,
         );
-        let count = height.saturating_sub(11);
+        let count = height.saturating_sub(11 + hint_rows);
+        let output_lines = if self.show_output {
+            self.output_lines(width)
+        } else {
+            Vec::new()
+        };
+        let output_start = self.output_offset.min(output_lines.len().saturating_sub(1));
         for row in 0..count {
             let stack_index = self.stack_offset + row;
             let stack_line = self
@@ -484,7 +679,14 @@ impl Tui {
                 })
                 .unwrap_or_default();
             push(
-                if wide {
+                if self.show_output {
+                    format!(
+                        " {}",
+                        output_lines
+                            .get(output_start + row)
+                            .map_or("", String::as_str)
+                    )
+                } else if wide {
                     format!(
                         "{}│{}",
                         pad(&stack_line, split),
@@ -502,7 +704,7 @@ impl Tui {
         let settings = self.pad.calculator().settings();
         push(
             format!(
-                " {} | {} bits | {} | layer={} | F2 layer F3 focus F4 tab F5 command",
+                " {} | {} bits | {} | layer={} | F2 layer F3 focus F4 tab F5 command F6 output",
                 if settings.binary_mode {
                     "BINARY"
                 } else {
@@ -518,6 +720,17 @@ impl Tui {
         rows.truncate(height);
         rows
     }
+}
+
+fn guide_section<'a>(guide: &'a str, title: &str) -> &'a str {
+    let heading = format!("## {title}");
+    guide
+        .find(&heading)
+        .map(|start| {
+            let section = &guide[start..];
+            section.find("\n## ").map_or(section, |end| &section[..end])
+        })
+        .unwrap_or("Help section unavailable; use :help program")
 }
 
 fn clip(text: &str, width: usize) -> String {
@@ -654,5 +867,103 @@ mod tests {
         assert!(ui.pad.pending().is_empty());
         assert_eq!(ui.command, "-5");
         assert_eq!(ui.result(), "-5");
+    }
+
+    #[test]
+    fn settings_discovery_preserves_values_pending_input_and_numeric_history() {
+        let mut ui = ui();
+        ui.pad.execute_expression("1/3").unwrap();
+        ui.pad.handle(Key::Digit(7)).unwrap();
+        ui.command_mode = true;
+        ui.command = ":display".to_owned();
+        ui.cursor = ui.command.len();
+        let frame = ui
+            .render(100, 30)
+            .into_iter()
+            .map(|r| r.text)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(frame.contains("current = auto"));
+        assert!(frame.contains("fixed:N"));
+        ui.complete();
+        assert_eq!(ui.output.len(), 135);
+        assert!(ui.output.contains(&"fixed:128".to_owned()));
+        assert_eq!(ui.command, ":display ");
+        ui.submit();
+        assert!(ui.show_output && !ui.failed);
+        assert!(ui.output[0].contains("current = auto"));
+        assert_eq!(ui.pad.pending(), "7");
+        assert_eq!(ui.result(), "1/3");
+        ui.command = ":precision".to_owned();
+        ui.submit();
+        assert!(ui.output[0].contains("53 bits"));
+        ui.pad.handle(Key::Cancel).unwrap();
+        assert!(ui.pad.calculator_mut().undo());
+        assert_eq!(ui.pad.calculator().depth(), 0);
+        assert!(!ui.pad.calculator_mut().undo());
+    }
+
+    #[test]
+    fn output_wraps_and_scrolls_without_losing_command_or_calculator_state() {
+        let mut ui = ui();
+        ui.command = ":display".to_owned();
+        ui.cursor = ui.command.len();
+        ui.complete();
+        ui.focus_output();
+        ui.resize(40);
+        ui.scroll(100_000);
+        let frame = ui
+            .render(40, 15)
+            .into_iter()
+            .map(|r| r.text)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(frame.contains("fixed:128"), "{frame}");
+        assert_eq!(ui.command, ":display ");
+        assert_eq!(ui.pad.calculator().depth(), 0);
+        ui.resize(100);
+        assert_eq!(ui.output_offset, 0);
+        ui.command = ":bindings".to_owned();
+        ui.submit();
+        assert!(ui.output.iter().any(|line| line == "alt.7 = dup *"));
+        ui.command = "123 sto:test".to_owned();
+        ui.submit();
+        ui.command = ":registers".to_owned();
+        ui.submit();
+        assert_eq!(ui.output, ["test = 123"]);
+        assert_eq!(ui.result(), "123");
+    }
+
+    #[test]
+    fn embedded_guides_cover_all_topics_and_accept_crlf_checkouts() {
+        let mut ui = ui();
+        for topic in [
+            "",
+            "tui",
+            "program",
+            "layers",
+            "settings",
+            "math",
+            "stack",
+            "registers",
+            "macros",
+            "scripts",
+            "persistence",
+        ] {
+            ui.command = format!(":help {topic}");
+            ui.submit();
+            assert!(!ui.failed && ui.output.len() > 3, "{topic}");
+            assert!(
+                !ui.output
+                    .iter()
+                    .any(|line| line.contains("Help section unavailable"))
+            );
+        }
+        let guide = include_str!("../docs/PROGRAM_GUIDE.md")
+            .replace("\r\n", "\n")
+            .replace('\n', "\r\n");
+        let chapter = guide_section(&guide, "Macros and programming");
+        assert!(chapter.contains("let:NAME") && chapter.contains("while"));
+        assert!(!chapter.contains("## Scripts and automation"));
     }
 }

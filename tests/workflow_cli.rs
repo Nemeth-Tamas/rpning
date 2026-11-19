@@ -2,6 +2,36 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 
 #[test]
+fn bare_setting_commands_query_without_mutating_and_explicit_repl_accepts_pipes() {
+    for arguments in [vec![], vec!["--repl"]] {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_rpn"))
+            .args(arguments)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child.stdin.take().unwrap().write_all(b"1/3\n:display\n:mode\n:precision\n:round\n:display fixed:2\n:display\n:stack\n:undo\n:stack\n").unwrap();
+        let output = child.wait_with_output().unwrap();
+        assert!(output.status.success(), "{:?}", output.stderr);
+        let text = String::from_utf8_lossy(&output.stdout);
+        for expected in [
+            "current = auto",
+            "current = exact",
+            "current = 53 bits",
+            "current = nearest",
+            "Allowed:",
+            "current = fixed:2",
+            "[0] ~0.33",
+            "(empty)",
+        ] {
+            assert!(text.contains(expected), "missing {expected}: {text}");
+        }
+        assert!(output.stderr.is_empty());
+    }
+}
+
+#[test]
 fn settings_shortcuts_bindings_and_history_roundtrip_between_processes() {
     let directory = std::env::temp_dir().join(format!("rpning-workflow-{}", std::process::id()));
     std::fs::create_dir_all(&directory).unwrap();

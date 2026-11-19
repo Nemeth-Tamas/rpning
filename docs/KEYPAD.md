@@ -46,7 +46,9 @@ Use NumLock on. The display shows stack depth, X and pending entry after each
 accepted event. Each value is clipped to 56 characters on screen, with `...`
 when clipped; the stored exact value is unchanged. This intentionally simple
 first interface prints a fresh status line instead of requiring ANSI support.
-Normal `cargo run` still starts the full command-based REPL.
+Normal `cargo run` starts the TUI on Windows when both streams are terminals.
+Use `cargo run -- --repl` for the command-based line editor. The
+[TUI layer guide](TUI.md#keypad-layers) lists every Base/Alt/Nav mapping.
 
 | Input | Behavior |
 | --- | --- |

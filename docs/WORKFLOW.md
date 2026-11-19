@@ -1,12 +1,16 @@
 # Daily terminal workflow
 
-Run `rpn` for the REPL, `rpn --eval "3 4 +"` for one expression, or
+Run `rpn` for the Windows TUI (`rpn --repl` for the ordinary REPL),
+`rpn --eval "3 4 +"` for one expression, or
 `rpn --run FILE` for one atomic RPN source file. `:help` lists commands.
 RPN scripts contain the macro language, not application commands.
+See the [TUI guide](TUI.md) and [full program guide](PROGRAM_GUIDE.md) for the
+complete user reference, layer tables and embedded help topics. Linux/macOS
+continue to default to the ordinary REPL.
 
 ## History and completion
 
-On Windows the focused console editor supports insertion, Left/Right,
+On Windows the ordinary REPL's focused console editor supports insertion, Left/Right,
 Home/End, Backspace/Delete, Up/Down history, Ctrl+U to clear, Ctrl+R to search
 backward using current input as a literal substring, and Tab completion.
 Press Ctrl+R again for an earlier match. Esc clears the line; Ctrl+C cancels
@@ -28,12 +32,16 @@ and completion listing rather than the Windows interactive editing keys.
 
 `:mode exact|binary`, `:precision BITS`, `:round nearest|zero|up|down|away`
 and `:display MODE` control calculation/presentation. `:settings` shows them.
+Enter any of those four setting commands without an argument to show the current
+value and allowed options without changing state. TUI CMD also displays hints
+while typing and offers setting-argument Tab completion; F6 browses all choices.
 
 | Display | Behavior |
 | --- | --- |
 | `auto` | Exact terminating decimal up to 128 places, otherwise exact fraction |
 | `scientific` | Lossless scientific notation for terminating representations |
 | `fraction` | Canonical exact integer/fraction |
+| `binary`, `octal`, `hex` | Prefixed integer representation; fractions remain lossless |
 | `fixed:N` | N decimal places (0..128), using the selected rounding direction |
 
 Rounded fixed output is prefixed by `~`: 1/3 at fixed:2 and nearest rounding

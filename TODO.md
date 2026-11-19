@@ -144,12 +144,13 @@
 - [x] Handle terminal resizing, long values and readable color styling
 - [x] Verify TUI behavior while preserving REPL, pipes, scripts and one-shot evaluation
 
-### M9 follow-up requirements (pending)
+### M9 follow-up requirements
 
-- [ ] Make TUI setting commands discoverable: for example, :display should offer argument completion with all valid options below the input, or Enter without arguments should show the current value and all allowed values without changing the setting. Apply this behavior consistently to similar setting commands.
-- [ ] Expand docs/TUI.md into a comprehensive user guide covering everything available inside the TUI: controls, numeric and command entry, settings and valid options, mathematics, stack/history, registers, macros, shortcuts/layers, persistence, errors and worked examples.
-- [ ] Make the TUI the default interactive startup mode for now; preserve explicit access to the ordinary REPL and existing pipe/script/one-shot behavior.
+- [x] Make TUI setting commands discoverable: for example, :display should offer argument completion with all valid options below the input, or Enter without arguments should show the current value and all allowed values without changing the setting. Apply this behavior consistently to similar setting commands.
+- [x] Expand docs/TUI.md into a comprehensive user guide covering everything available inside the TUI: controls, numeric and command entry, settings and valid options, mathematics, stack/history, registers, macros, shortcuts/layers, persistence, errors and worked examples.
+- [x] Make the TUI the default interactive startup mode for now; preserve explicit access to the ordinary REPL and existing pipe/script/one-shot behavior.
 
-These are saved requirements only; implementation is deferred to the next work session.
+These follow-ups are implemented and verified; use the guides for current behavior.
 
-- [ ] Add a clear keypad layer guide to the full TUI user guide: explain base versus Alt, list every default key/action mapping for both layers (especially Alt), show how to switch layers and recognize the active layer, and explain how to inspect/customize mappings and macro shortcuts.
+- [x] Add a clear keypad layer guide to the full TUI user guide: explain base versus Alt, list every default key/action mapping for both layers (especially Alt), show how to switch layers and recognize the active layer, and explain how to inspect/customize mappings and macro shortcuts.
+- [x] Attach a complete segmented program guide to the TUI guide, including all implemented commands, mathematics, settings, registers, macros, advanced programming, scripts, persistence and limits.

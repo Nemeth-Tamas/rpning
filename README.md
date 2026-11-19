@@ -19,10 +19,17 @@ statistics, combinations/permutations and binomial probabilities. See
 [extended mathematics](docs/EXTENDED.md). Build from source for features added
 after the v0.1.0 downloadable binaries.
 
-The Windows calculator TUI is now available with
-`cargo run --release -- --tui`: fixed result/entry at the top, live stack and
-calculation history below. F3 changes focus, F4 switches narrow panes, and F5
-opens command entry. See [the TUI guide](docs/TUI.md) for keys and limitations.
+The Windows calculator TUI is the default interactive mode with
+`cargo run --release`: fixed result/entry at the top, live stack and calculation
+history below. F3 changes focus, F4 switches lower panes, F5 opens command entry,
+and F6 browses help/output. Bare setting commands such as `:display` show the
+current value and allowed options; Tab completes arguments. Use `--repl` for
+the ordinary line editor. Pipes and one-shot/scripts retain their behavior.
+
+Read the [TUI user guide and complete layer tables](docs/TUI.md), then the
+attached [full program guide](docs/PROGRAM_GUIDE.md) for mathematics, settings,
+registers, macros, advanced programming, scripts and all commands. Both guides
+are embedded in TUI `:help tui` / `:help program`, with topic chapters.
 
 Initial release implementation, with the extended roadmap retained in TODO.md.
 
@@ -81,7 +88,7 @@ Start the interactive calculator:
 cargo run
 ```
 
-Example session:
+For the ordinary line editor, run `cargo run -- --repl`. Example REPL session:
 
 ```text
 > 3 4 +

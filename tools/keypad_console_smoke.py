@@ -141,7 +141,7 @@ def worker(executable: Path) -> None:
             return [record(0, char, flags=0) for char in source]
 
         enter = record(0x0d, "\r", flags=0)
-        exercise("", text(": square dup * ;") + [enter]
+        exercise("--repl", text(": square dup * ;") + [enter]
                  + text("13") + [record(0x25, flags=0x100)] + text("2")
                  + [record(0x23, flags=0x100), record(0x08, "\b"),
                     record(0x24, flags=0x100), record(0x2e, flags=0x100), enter]
@@ -152,6 +152,23 @@ def worker(executable: Path) -> None:
                  + text(":history square") + [enter]
                  + text(":quit") + [enter],
                  ["[0] 81", "[2] 81", "[3] 2", "9 square", ": square dup * ;"])
+        # Input can be a console while stdout is redirected. No-argument
+        # startup must then use plain line input, without VT or editor modes.
+        redirected = subprocess.Popen([str(executable)], stdin=console_in, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            events = text("3 4 +") + [enter] + text(":quit") + [enter]
+            array = (InputRecord * len(events))(*events)
+            count = w.DWORD()
+            assert kernel.WriteConsoleInputW(input_handle, array, len(array), ctypes.byref(count))
+            assert count.value == len(events)
+            output, errors = redirected.communicate(timeout=5)
+            assert redirected.returncode == 0, errors.decode(errors="replace")
+            assert output.decode().strip() == "7", output
+            assert mode() == original_mode
+        finally:
+            if redirected.poll() is None:
+                redirected.kill()
+                redirected.wait()
         # TUI assertions run while its alternate buffer is active. After exit
         # the original screen must be back, so post-exit text alone cannot
         # validate rendering. Each read opens the currently active CONOUT$.
@@ -187,7 +204,7 @@ def worker(executable: Path) -> None:
         assert kernel.GetConsoleMode(output_handle, ctypes.byref(old_output_mode))
         old_cursor = CursorInfo()
         assert kernel.GetConsoleCursorInfo(output_handle, ctypes.byref(old_cursor))
-        child = subprocess.Popen([str(executable), "--tui"], stdin=console_in, stdout=console_out, stderr=subprocess.PIPE)
+        child = subprocess.Popen([str(executable)], stdin=console_in, stdout=console_out, stderr=subprocess.PIPE)
         try:
             def wait_frame(check) -> tuple[str, ScreenInfo]:
                 deadline = time.monotonic() + 8
@@ -229,6 +246,30 @@ def worker(executable: Path) -> None:
             wait_frame(lambda text, info: "STACK [2]" in text)
             send([record(0x59, "\x19", flags=0x08)])
             wait_frame(lambda text, info: "STACK [3]" in text)
+            # Bare settings are read-only queries; typed hints and argument
+            # completion must be visible without overwriting the result.
+            send(text(":display"))
+            wait_frame(lambda text, info: "current = auto" in text and "fixed:N" in text)
+            send([enter])
+            wait_frame(lambda text, info: "OUTPUT:" in text and "Allowed:" in text and result_is(text, info, "25"))
+            send(text(":display h") + [record(0x09, "\t"), enter])
+            wait_frame(lambda text, info: result_is(text, info, "0x19"))
+            send(text(":display auto") + [enter])
+            wait_frame(lambda text, info: result_is(text, info, "25"))
+            send(text(":display") + [record(0x09, "\t"), record(0x75), record(0x23, flags=0x100)])
+            wait_frame(lambda text, info: "fixed:128" in text and "FOCUS: Output" in text)
+            # Completion leaves the command editable; clear it using the
+            # documented CMD Home/Delete keys, then inspect the actual guide.
+            send([record(0x70), record(0x24, flags=0x100)]
+                 + [record(0x2e, flags=0x100)] * len(":display ")
+                 + text(":help layers") + [enter])
+            wait_frame(lambda text, info: "Keypad layers" in text and "OUTPUT:" in text)
+            send([record(0x75), record(0x22, flags=0x100)])
+            wait_frame(lambda text, info: "Square X" in text and "FOCUS: Output" in text)
+            send([record(0x73)])
+            wait_frame(lambda text, info: "STACK [3]" in text and "OUTPUT:" not in text)
+            send([record(0x73)])
+            wait_frame(lambda text, info: "FOCUS: History" in text)
             # Inject the documented resize record into this isolated console.
             # Classic size-changing APIs cannot resize every hidden VT host.
             resized = InputRecord(0x0004, Event(raw=(w.DWORD * 4)(60 | (20 << 16), 0, 0, 0)))
@@ -251,7 +292,7 @@ def worker(executable: Path) -> None:
             if child.poll() is None:
                 child.kill()
                 child.wait()
-    print("PASS: 6 isolated Windows console sessions; keypad/editor/TUI, live frames, errors, recall, undo, resize and terminal restoration")
+    print("PASS: 7 isolated Windows console sessions; explicit REPL/default TUI, redirected output, live frames, setting discovery, full completion, layer help, errors, recall, undo, resize and restoration")
 
 
 def main() -> None:

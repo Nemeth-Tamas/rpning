@@ -21,7 +21,13 @@ fn run() -> io::Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
 
     match args.as_slice() {
+        [] if cfg!(windows) && io::stdin().is_terminal() && io::stdout().is_terminal() => {
+            keypad_terminal::run_tui()
+        }
+
         [] => repl(),
+
+        [flag] if flag == "--repl" => repl(),
 
         [flag] if flag == "--keypad" => keypad_terminal::run(false),
 
@@ -71,7 +77,7 @@ fn evaluate_once(expression: &str) -> io::Result<()> {
 
 fn repl() -> io::Result<()> {
     let stdin = io::stdin();
-    let interactive = stdin.is_terminal();
+    let interactive = stdin.is_terminal() && io::stdout().is_terminal();
 
     let mut calc = Calculator::new();
     let mut config = if interactive {
@@ -202,13 +208,7 @@ fn repl() -> io::Result<()> {
                 }
             }
 
-            command
-                if command == ":settings"
-                    || command.starts_with(":precision ")
-                    || command.starts_with(":round ")
-                    || command.starts_with(":mode ")
-                    || command.starts_with(":display ") =>
-            {
+            command if workflow::is_numeric_command(command) => {
                 match workflow::configure_numeric(&mut calc, &mut config, command) {
                     Ok(message) => {
                         println!("{message}");
@@ -290,7 +290,8 @@ fn print_help() {
     println!("rpning - exact RPN calculator");
     println!();
     println!("Usage:");
-    println!("  rpn                       Interactive calculator");
+    println!("  rpn                       Windows TUI; REPL on other platforms or with pipes");
+    println!("  rpn --repl                Ordinary line-oriented REPL");
     println!("  rpn --keypad              Immediate keypad input (Windows console)");
     println!("  rpn --tui                 Full-screen results, stack and history (Windows)");
     println!("  rpn --keypad-diagnose     Inspect focused console key events (Windows)");
@@ -353,6 +354,7 @@ fn print_help() {
         "  :unbind LAYER KEY / :bindings  Remove/list mappings; F2 toggles base/alt in keypad"
     );
     println!("  :settings                 Show numeric settings");
+    println!("  :mode / :precision / :round / :display  Show current value and allowed options");
     println!("  :undo                     Restore previous stack");
     println!("  :redo                     Reapply undone calculation");
     println!("  :help                     Show help");

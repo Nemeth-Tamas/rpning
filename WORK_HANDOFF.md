@@ -1,5 +1,28 @@
 # rpning development checkpoint
 
+## Latest TUI follow-up
+
+Windows terminal startup now defaults to the TUI; --repl explicitly selects
+the ordinary editor. Pipes/redirected output use plain line input, and
+Linux/macOS retain their ordinary REPL. The TUI adds setting hints, contextual
+argument completion and read-only bare :display/:mode/:round/:precision queries.
+F6 focuses a wrapped, scrollable Output pane for complete query/list/help output.
+F3 now cycles Input, Stack, History, Result, Output; F4 returns to stack/history.
+TUI :registers is available alongside macro inspection and history search.
+
+docs/TUI.md is the full interface/layer guide. Its attached docs/PROGRAM_GUIDE.md
+contains the complete segmented program reference, including advanced macro
+programming, all math, registers, scripts, command index, persistence and limits.
+Both guides are embedded via :help tui / :help program; topic help includes
+layers, settings, math, stack, registers, macros, scripts and persistence.
+No external documentation files are needed beside the built executable.
+
+The M9 follow-up requirements are implemented and checked after final gates:
+137 Rust tests, strict Clippy, 1140 Fraction rounding checks, 477 Decimal
+comparisons, seven isolated Windows console sessions, and guide examples/links.
+The prior implementation details below
+provide historical context; the latest behavior above takes precedence.
+
 The published v0.1.0 contains the original calculator core. Development main
 also contains the first M7 batch and the first Windows M9 TUI. Build current
 source to use them; do not replace the v0.1.0 tag.
@@ -41,7 +64,7 @@ separately after relevant checks pass. Preserve existing task labels/order.
 
 ## Remaining work
 
-Stop at this tested checkpoint. M2 still needs a stable numeric abstraction
+M2 still needs a stable numeric abstraction
 and measured small-integer optimization. Eight M7 tasks remain: complex
 numbers, vectors/matrices, unit conversions, physical constants, financial
 math, numerical calculus, equation solving and custom math extensions.

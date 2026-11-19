@@ -30,9 +30,21 @@ Install a current stable Rust toolchain. From the repository root:
 
 Windows executable:
   .\target\release\rpn.exe
+  .\target\release\rpn.exe --repl
+  .\target\release\rpn.exe --tui
   .\target\release\rpn.exe --keypad
   .\target\release\rpn.exe --keypad-diagnose
   .\target\release\rpn.exe --run examples/invoice.rpn
+
+Current source starts the TUI by default on a Windows terminal. F5 switches
+NUM/CMD input; F2 toggles Base/Alt; F3 changes focus; F4 switches stack/history;
+F6 browses complete command/help output. --repl keeps the ordinary line editor.
+Pipes and redirected output use plain line input. The v0.1.0 downloads predate
+these TUI features; build current source rather than expecting them there.
+In CMD, :display without an argument shows current/allowed values; Tab offers
+setting-argument completion. :help tui and :help program open embedded guides.
+Full references: docs/TUI.md (including all layers) and docs/PROGRAM_GUIDE.md
+(all program features, including advanced macros, scripts and mathematics).
 
 KEYPAD FIRST CALCULATION
 With numeric input enabled on the numpad:
