@@ -4,9 +4,8 @@ use std::process;
 
 use rpning::Calculator;
 use rpning::number::Number;
-use rpning::precision::Rounding;
 use rpning::storage;
-use rpning::{config::Config, display::DisplayMode, history::History, workflow};
+use rpning::{config::Config, history::History, workflow};
 use rpning::{persistence, programming};
 
 mod keypad_terminal;
@@ -208,7 +207,7 @@ fn repl() -> io::Result<()> {
                     || command.starts_with(":mode ")
                     || command.starts_with(":display ") =>
             {
-                match configure(&mut calc, &mut config, command) {
+                match workflow::configure_numeric(&mut calc, &mut config, command) {
                     Ok(message) => {
                         println!("{message}");
                         config.capture(&calc);
@@ -285,50 +284,6 @@ fn format_for_calc(calc: &Calculator, config: &Config, value: &Number) -> String
     config.display.format(value, calc.settings().rounding)
 }
 
-fn configure(calc: &mut Calculator, config: &mut Config, command: &str) -> Result<String, String> {
-    let words: Vec<&str> = command.split_whitespace().collect();
-    match words.as_slice() {
-        [":settings"] => {
-            let settings = calc.settings();
-            Ok(format!(
-                "mode={} precision={} bits rounding={} display={}",
-                if settings.binary_mode {
-                    "binary"
-                } else {
-                    "exact"
-                },
-                settings.bits,
-                settings.rounding.name(),
-                config.display.name(),
-            ))
-        }
-        [":mode", mode @ ("exact" | "binary")] => {
-            calc.set_binary_mode(*mode == "binary");
-            Ok(format!("numeric mode: {mode}"))
-        }
-        [":precision", bits] => {
-            let bits = bits
-                .parse::<u64>()
-                .map_err(|_| "invalid bit count".to_owned())?;
-            calc.set_precision_bits(bits)
-                .map_err(|error| error.to_string())?;
-            Ok(format!("precision: {bits} bits"))
-        }
-        [":round", mode] => {
-            let rounding = Rounding::parse(mode).ok_or("rounding: nearest|zero|up|down|away")?;
-            calc.set_rounding(rounding);
-            Ok(format!("rounding: {}", rounding.name()))
-        }
-        [":display", mode] => {
-            config.display = DisplayMode::parse(mode)
-                .ok_or("display: auto|scientific|fraction|fixed:N (N=0..128)")?;
-            calc.set_scientific_display(config.display == DisplayMode::Scientific);
-            Ok(format!("display: {}", config.display.name()))
-        }
-        _ => Err("invalid settings command; see :help".to_owned()),
-    }
-}
-
 fn print_help() {
     println!("rpning - exact RPN calculator");
     println!();
@@ -344,6 +299,14 @@ fn print_help() {
     println!("Operators:");
     println!("  +  -  *  /                Exact rational arithmetic");
     println!("  div mod                   Integer quotient and remainder");
+    println!("  0b/0o/0x literals        Exact binary, octal and hexadecimal integers");
+    println!("  band bor bxor bnot shl shr  Integer bitwise operations");
+    println!(
+        "  u8/i8 .. u128/i128       Wrap/interpret fixed-width integers; VALUE BITS asuint/asint"
+    );
+    println!("  sum mean median min max var svar stdev sstdev  Consume N values followed by N");
+    println!("  choose perm / N K P binomp  Combinatorics / exact binomial probability");
+    println!("  :display binary|octal|hex  Integer base display (fractions remain lossless)");
     println!("  pow sqrt root fact gcd lcm Exact advanced mathematics");
     println!("  pi e                      Approximate mathematical constants");
     println!("  exp ln log2 log10         Approximate exponential/logarithms");

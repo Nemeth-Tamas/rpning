@@ -1,5 +1,7 @@
 //! Application commands that do not belong to numeric evaluation.
 
+use crate::display::DisplayMode;
+use crate::precision::Rounding;
 use crate::{Calculator, config::Config, history::History};
 
 pub fn is_command(line: &str) -> bool {
@@ -24,6 +26,7 @@ pub fn is_command(line: &str) -> bool {
 
 pub fn completions(calc: &Calculator) -> Vec<String> {
     let mut words: Vec<String> = "+ - * / div mod pow sqrt root fact gcd lcm pi e exp ln log2 log10 sin cos tan rad deg approx dup drop swap over rot nip tuck clear depth pick roll clearmem abs neg not if else then times while do end :stack :registers :save :load :undo :redo :mode :precision :round :display :settings :settings-save :settings-load :history :history-save :history-load :complete :shortcut :shortcuts :do :bind :unbind :bindings :macros :see :trace :alias :import :export :macros-save :macros-load :help :quit".split_whitespace().map(str::to_owned).collect();
+    words.extend(crate::extended::WORDS.split_whitespace().map(str::to_owned));
     words.extend(calc.macros().keys().cloned());
     for (name, _) in calc.registers() {
         words.push(format!("rcl:{name}"));
@@ -123,5 +126,53 @@ pub fn command(
             Ok(vec![format!("unbound: {}.{}", words[0], words[1])])
         }
         _ => Err("invalid workflow command; see :help".to_owned()),
+    }
+}
+
+pub fn configure_numeric(
+    calc: &mut Calculator,
+    config: &mut Config,
+    command: &str,
+) -> Result<String, String> {
+    let words: Vec<&str> = command.split_whitespace().collect();
+    match words.as_slice() {
+        [":settings"] => {
+            let settings = calc.settings();
+            Ok(format!(
+                "mode={} precision={} bits rounding={} display={}",
+                if settings.binary_mode {
+                    "binary"
+                } else {
+                    "exact"
+                },
+                settings.bits,
+                settings.rounding.name(),
+                config.display.name(),
+            ))
+        }
+        [":mode", mode @ ("exact" | "binary")] => {
+            calc.set_binary_mode(*mode == "binary");
+            Ok(format!("numeric mode: {mode}"))
+        }
+        [":precision", bits] => {
+            let bits = bits
+                .parse::<u64>()
+                .map_err(|_| "invalid bit count".to_owned())?;
+            calc.set_precision_bits(bits)
+                .map_err(|error| error.to_string())?;
+            Ok(format!("precision: {bits} bits"))
+        }
+        [":round", mode] => {
+            let rounding = Rounding::parse(mode).ok_or("rounding: nearest|zero|up|down|away")?;
+            calc.set_rounding(rounding);
+            Ok(format!("rounding: {}", rounding.name()))
+        }
+        [":display", mode] => {
+            config.display = DisplayMode::parse(mode)
+                .ok_or("display: auto|scientific|fraction|binary|octal|hex|fixed:N (N=0..128)")?;
+            calc.set_scientific_display(config.display == DisplayMode::Scientific);
+            Ok(format!("display: {}", config.display.name()))
+        }
+        _ => Err("invalid settings command; see :help".to_owned()),
     }
 }

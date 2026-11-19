@@ -328,6 +328,56 @@ impl Calculator {
 
         for token in tokenize(input) {
             match token {
+                "binomp" => {
+                    require_depth(&working, 3, token)?;
+                    let len = working.len();
+                    let result = crate::extended::binomial(
+                        &working[len - 3],
+                        &working[len - 2],
+                        &working[len - 1],
+                    )
+                    .map_err(CalcError::Math)?;
+                    working.truncate(len - 3);
+                    working.push(self.quantize(result)?);
+                }
+                "band" | "bor" | "bxor" | "shl" | "shr" | "asuint" | "asint" | "choose"
+                | "perm" => {
+                    require_depth(&working, 2, token)?;
+                    let len = working.len();
+                    let result =
+                        crate::extended::binary(token, &working[len - 2], &working[len - 1])
+                            .map_err(CalcError::Math)?;
+                    working.truncate(len - 2);
+                    working.push(self.quantize(result)?);
+                }
+                "bnot" | "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "u64" | "i64" | "u128"
+                | "i128" => {
+                    require_depth(&working, 1, token)?;
+                    let result =
+                        crate::extended::unary(token, working.last().expect("checked depth"))
+                            .map_err(CalcError::Math)?;
+                    working.pop();
+                    working.push(self.quantize(result)?);
+                }
+                "sum" | "mean" | "median" | "min" | "max" | "var" | "svar" | "stdev" | "sstdev" => {
+                    require_depth(&working, 1, token)?;
+                    let count =
+                        usize::try_from(working.last().expect("checked depth")).map_err(|_| {
+                            CalcError::Math(
+                                "statistic count must be a nonnegative integer".to_owned(),
+                            )
+                        })?;
+                    if count > 10_000 {
+                        return Err(CalcError::Math("statistic count exceeds 10000".to_owned()));
+                    }
+                    require_depth(&working, count + 1, token)?;
+                    let start = working.len() - count - 1;
+                    let result =
+                        crate::extended::aggregate(token, &working[start..working.len() - 1])
+                            .map_err(CalcError::Math)?;
+                    working.truncate(start);
+                    working.push(self.quantize(result)?);
+                }
                 "=" | "!=" | "<" | "<=" | ">" | ">=" => {
                     require_depth(&working, 2, token)?;
                     let x = working.pop().expect("checked depth");

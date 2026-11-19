@@ -12,6 +12,9 @@ pub enum DisplayMode {
     Auto,
     Scientific,
     Fraction,
+    Binary,
+    Octal,
+    Hex,
     Fixed(u8),
 }
 
@@ -21,6 +24,9 @@ impl DisplayMode {
             "auto" => Some(Self::Auto),
             "scientific" => Some(Self::Scientific),
             "fraction" => Some(Self::Fraction),
+            "binary" => Some(Self::Binary),
+            "octal" => Some(Self::Octal),
+            "hex" => Some(Self::Hex),
             _ => text
                 .strip_prefix("fixed:")?
                 .parse::<u8>()
@@ -34,6 +40,9 @@ impl DisplayMode {
             Self::Auto => "auto".to_owned(),
             Self::Scientific => "scientific".to_owned(),
             Self::Fraction => "fraction".to_owned(),
+            Self::Binary => "binary".to_owned(),
+            Self::Octal => "octal".to_owned(),
+            Self::Hex => "hex".to_owned(),
             Self::Fixed(places) => format!("fixed:{places}"),
         }
     }
@@ -42,6 +51,15 @@ impl DisplayMode {
             Self::Auto => format_number(value),
             Self::Scientific => format_scientific(value),
             Self::Fraction => value.to_string(),
+            Self::Binary => {
+                crate::extended::format_base(value, 2).unwrap_or_else(|| format_number(value))
+            }
+            Self::Octal => {
+                crate::extended::format_base(value, 8).unwrap_or_else(|| format_number(value))
+            }
+            Self::Hex => {
+                crate::extended::format_base(value, 16).unwrap_or_else(|| format_number(value))
+            }
             Self::Fixed(places) => fixed(value, places, rounding),
         }
     }

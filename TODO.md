@@ -103,11 +103,11 @@
 ## M7 — Extended mathematical environment
 
 - [ ] Implement complex numbers
-- [ ] Add binary, octal and hexadecimal modes
-- [ ] Add bitwise arithmetic
-- [ ] Add fixed-width integer interpretations
-- [ ] Add statistical functions
-- [ ] Add probability and combinatorics
+- [x] Add binary, octal and hexadecimal modes
+- [x] Add bitwise arithmetic
+- [x] Add fixed-width integer interpretations
+- [x] Add statistical functions
+- [x] Add probability and combinatorics
 - [ ] Add vectors and matrices
 - [ ] Add unit conversions
 - [ ] Add physical constants

@@ -1,6 +1,7 @@
 pub mod config;
 pub mod display;
 pub mod engine;
+pub mod extended;
 pub mod history;
 pub mod keymap;
 pub mod keypad;

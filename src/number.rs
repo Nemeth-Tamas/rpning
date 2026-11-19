@@ -9,6 +9,9 @@ pub type Number = Rational;
 ///
 /// No conversion through f32 or f64 is ever performed.
 pub fn parse_literal(token: &str) -> Option<Number> {
+    if let Some(value) = crate::extended::parse_base(token) {
+        return Some(value);
+    }
     token
         .parse::<Number>()
         .ok()

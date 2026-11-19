@@ -13,6 +13,12 @@ The goal is to combine traditional stack-based calculation with arbitrary-precis
 
 ## Current implementation
 
+Development `main` additionally includes the first M7 batch: base-prefixed
+integer input/output, bitwise and fixed-width conversions, counted exact
+statistics, combinations/permutations and binomial probabilities. See
+[extended mathematics](docs/EXTENDED.md). Build from source for features added
+after the v0.1.0 downloadable binaries.
+
 Initial release implementation, with the extended roadmap retained in TODO.md.
 
 - Exact arbitrary-precision integers and rational numbers

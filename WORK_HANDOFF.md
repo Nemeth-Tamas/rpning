@@ -1,5 +1,15 @@
 # rpning — Comprehensive Work-mode handoff
 
+## Current development checkpoint
+
+The first M7 batch is implemented on main: alternate-base literals/display,
+bitwise operations, fixed-width interpretations, counted statistics and exact
+binomial probability/combinatorics. See docs/EXTENDED.md. Five original M7
+tasks are checked only after 127 Rust tests, strict Clippy and both independent
+numeric oracles passed. Remaining M7 tasks and both M2 tasks stay open. M9 is
+the next active implementation slice. The user asked to stop with a usage
+reserve; the assistant cannot inspect the account meter directly.
+
 ## Published release and next work
 
 The user explicitly added M9: a calculator TUI with a prominent result/entry

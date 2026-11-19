@@ -140,6 +140,12 @@ pub fn valid_name(name: &str) -> bool {
 }
 
 fn reserved(name: &str) -> bool {
+    if crate::extended::WORDS
+        .split_whitespace()
+        .any(|word| word == name)
+    {
+        return true;
+    }
     matches!(
         name,
         "+" | "-"
