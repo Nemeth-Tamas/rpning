@@ -5,6 +5,10 @@ Hotfix checkpoint: v0.2.1 corrects physical Alt/custom numpad routing with
 NumLock OFF, with measured-event and live-console regressions. Existing task
 labels and unchecked M2/M7/manual-platform work remain unchanged.
 
+The layer guide now distinguishes effective v0.2.0 Alt/NumLock-OFF Nav actions
+from v0.2.1 physical-layer behavior, rather than presenting saved bindings as
+proof of runtime dispatch. Pulling source alone does not replace an old EXE.
+
 Release checkpoint: v0.2.0 packages the implemented M7 batch and Windows M9
 TUI, setting discovery and full embedded guides. Its release pipeline builds
 Windows/Linux/macOS binaries and checksums after all gates pass. The original

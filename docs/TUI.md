@@ -184,32 +184,45 @@ Dedicated enhanced navigation keys still use Nav. NUM input must have focus;
 browsing and CMD editing retain their own navigation controls. Use NumLock ON
 for ordinary Base number entry; routing does not rely on the NumLock flag alone.
 
-To cancel pending input in Alt with NumLock OFF, use Ctrl+Z or the dedicated
-Delete key. The physical numpad decimal/Delete position remains the Alt pi key.
-
 ### Complete default Base and Alt mappings
 
-| Key/event | Base default | Alt default / expression |
-| --- | --- | --- |
-| 7 | Append 7 | Square X: `dup *` |
-| 8 | Append 8 | Exact square root: `sqrt` |
-| 9 | Append 9 | Reciprocal: `1 swap /` |
-| 4 | Append 4 | Swap X/Y: `swap` |
-| 5 | Append 5 | Duplicate X: `dup` |
-| 6 | Append 6 | Drop X: `drop` |
-| 1 | Append 1 | Undo: `@undo` |
-| 2 | Append 2 | Redo: `@redo` |
-| 3 | Append 3 | Clear stack: `clear` |
-| 0 | Append 0 | Toggle sign: `@sign` |
-| Decimal . or , | Decimal entry | Push approximate pi: `pi` |
-| + / - / * / / | Immediate arithmetic | Same Base fallback |
-| Enter | Commit entry / duplicate X | Same Base fallback |
-| Backspace | Edit entry | Same Base fallback |
-| S | Pending sign / negate X | Same Base fallback |
-| C | Clear stack and pending input | Same Base fallback |
-| Tab | Commit pending entry and swap X/Y | Same Base fallback |
-| Dedicated Delete | Nav `@cancel` | Nav `@cancel` |
-| F1..F6, Ctrl+Z/Y, Esc/Ctrl+C | Global TUI controls | Same global controls |
+**v0.2.0 Alt/NumLock OFF uses the last column; v0.2.1 Alt uses the third in both states.**
+
+| Physical key/event | Base, NumLock ON | Alt: v0.2.0 ON / v0.2.1 ON or OFF | v0.2.0 Alt, NumLock OFF: actual action |
+| --- | --- | --- | --- |
+| 7 | Append 7 | Square X: `dup *` | Duplicate X: `dup` |
+| 8 | Append 8 | Exact square root: `sqrt` | Swap X/Y: `swap` |
+| 9 | Append 9 | Reciprocal: `1 swap /` | Drop X: `drop` |
+| 4 | Append 4 | Swap X/Y: `swap` | Negate X: `neg` |
+| 5 | Append 5 | Duplicate X: `dup` | Ignored (Clear event, no mapping) |
+| 6 | Append 6 | Drop X: `drop` | Exact square root: `sqrt` |
+| 1 | Append 1 | Undo: `@undo` | Undo: `@undo` |
+| 2 | Append 2 | Redo: `@redo` | Redo: `@redo` |
+| 3 | Append 3 | Clear stack: `clear` | Clear stack: `clear` |
+| 0 | Append 0 | Toggle sign: `@sign` | Push stack depth: `depth` |
+| 00 | Append two zeros | Toggle sign twice | Push stack depth twice |
+| Decimal . or , | Decimal entry | Push approximate pi: `pi` | Cancel pending entry: `@cancel` |
+| + / - / * / / | Immediate arithmetic | Same Base fallback | Same Base fallback |
+| Enter | Commit entry / duplicate X | Same Base fallback | Same Base fallback |
+| Backspace | Edit entry | Same Base fallback | Same Base fallback |
+| S | Pending sign / negate X | Same Base fallback | Same Base fallback |
+| C | Clear stack and pending input | Same Base fallback | Same Base fallback |
+| Tab | Commit pending entry and swap X/Y | Same Base fallback | Same Base fallback |
+| Dedicated Delete | Nav `@cancel` | Nav `@cancel` | Nav `@cancel` |
+| F1..F6, Ctrl+Z/Y, Esc/Ctrl+C | Global TUI controls | Same global controls | Same global controls |
+**Read the column matching your EXE version and NumLock state.** In v0.2.0,
+NumLock-off numpad events select Nav even while the footer says Alt. Thus the
+configured `alt.7 = dup *` binding does NOT describe what physical 7 actually
+does in that state. v0.2.1 fixes that routing. Check your executable using
+`rpn.exe --version` from the terminal; pulling source does not update an older
+downloaded EXE.
+
+These are effective actions with default saved bindings. `:bindings` lists
+configuration records; it is not proof that v0.2.0 routes an event to that layer.
+In Base with NumLock OFF, use the Nav table below.
+
+To cancel pending input in Alt with NumLock OFF, use Ctrl+Z or the dedicated
+Delete key. The physical numpad decimal/Delete position remains the Alt pi key.
 
 Bound expressions commit pending input first. For example, enter 9 in Base,
 then F2 and Alt-8: sqrt operates on 9. Without pending entry Alt-8 uses X.

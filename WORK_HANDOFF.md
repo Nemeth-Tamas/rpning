@@ -2,6 +2,13 @@
 
 ## Physical keypad layer correction (0.2.1)
 
+The user requested a truthful runtime table. docs/TUI.md now has explicit
+columns for v0.2.0 Alt/NumLock-ON, its actual NumLock-OFF Nav overrides, and
+the corrected v0.2.1 behavior, including center and 00. Saved :bindings alone
+do not establish which layer v0.2.0 dispatches. Check EXE --version before
+assuming a source pull has updated a downloaded binary. This documentation
+follow-up does not move release tags or change the running release workflow.
+
 The guided report confirmed correct saved Alt bindings but NumLock-off 7/6
 emit non-enhanced Home/Right with scans 0x47/0x4d, selecting Nav dup/sqrt.
 event_for_layer in src/keypad_terminal.rs now resolves measured non-enhanced
