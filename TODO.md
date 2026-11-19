@@ -151,3 +151,5 @@
 - [ ] Make the TUI the default interactive startup mode for now; preserve explicit access to the ordinary REPL and existing pipe/script/one-shot behavior.
 
 These are saved requirements only; implementation is deferred to the next work session.
+
+- [ ] Add a clear keypad layer guide to the full TUI user guide: explain base versus Alt, list every default key/action mapping for both layers (especially Alt), show how to switch layers and recognize the active layer, and explain how to inspect/customize mappings and macro shortcuts.
