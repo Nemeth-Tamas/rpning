@@ -6,6 +6,11 @@ TUI, setting discovery and full embedded guides. Its release pipeline builds
 Windows/Linux/macOS binaries and checksums after all gates pass. The original
 v0.1.0 release and all remaining unchecked tasks are preserved.
 
+Keypad follow-up: a read-only guided Python diagnostic captures all 18 physical
+keys with NumLock ON/OFF, groups 00 bursts and includes saved mappings. Current
+mapping behavior is preserved pending the user's physical report; Alt-7 was
+reported as dup and Alt-6 as sqrt. Do not mark the mapping defect resolved yet.
+
 ## M0 — Project foundation
 
 - [x] Define project scope and architecture

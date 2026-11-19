@@ -1,5 +1,32 @@
 # Keypad mode: first usable Windows slice
 
+## Guided physical-key report
+
+If a physical key invokes the wrong layer action, run this read-only wizard
+from a Windows terminal (Python 3.10+, standard library only; no Rust rebuild):
+
+```powershell
+python tools/keypad_guided_diagnostic.py
+```
+
+Set NumLock ON and press main-keyboard F10 to start. Press/release each prompted
+numpad key once, then wait for the next prompt. It captures /, *, Backspace,
+7, 8, 9, -, 4, 5, 6, +, 1, 2, 3, Enter, 0, 00 and decimal, in that order.
+Repeat after setting NumLock OFF and pressing F10. A single 00 press is captured
+as one burst, retaining all emitted zero events. Use main-keyboard F8 to skip
+a silent key (often NumLock-off 5); it does not silently advance on a timeout.
+Esc/Ctrl+C aborts with a partial report. Console input mode is restored.
+
+The report includes physical prompt labels, timing, keydown/up/repeat, virtual
+key, scan code, Unicode and flags, plus saved binding records. Requested
+NumLock pass labels are separate from the reported NumLock flag. It changes
+no mappings/settings and performs no calculations. Copy the final report
+between its BEGIN-style heading and END marker; a timestamped copy is also
+saved as keypad-diagnostic-*.txt in the working directory and ignored by Git.
+
+Self-test in an isolated hidden console:
+`python tools/keypad_guided_diagnostic.py --self-test`.
+
 The CONNECT IT NumCALC CKB-0060-BK's actual emitted events were checked on
 2026-11-19, with both numeric and navigation modes. The calculation
 `12 Enter 3 + 2 *` produced X=30. This implementation uses console-translated

@@ -1,5 +1,17 @@
 # rpning development checkpoint
 
+## Physical-key diagnostic pending
+
+The user reports Alt-7 invokes dup and Alt-6 invokes sqrt. These resemble Nav
+Home/Right actions; await measured events rather than changing mapping policy.
+tools/keypad_guided_diagnostic.py prompts all 18 physical keys in the requested
+order with NumLock ON then OFF, records raw event bursts and saved bindings,
+and prints/saves a pasteable report. F10 starts each pass; F8 skips silent keys;
+Esc/Ctrl+C saves a partial report. No Rust rebuild or mappings/settings changes.
+Its --self-test uses a new hidden console for raw identity, 00, skip, abort and
+mode-restoration checks. Next step: read the user's report, then fix and test
+the character/navigation identity conflict against actual events.
+
 ## Release 0.2.0
 
 The package/lockfile and user-facing download instructions now target v0.2.0.
