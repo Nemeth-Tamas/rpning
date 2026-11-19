@@ -19,6 +19,11 @@ statistics, combinations/permutations and binomial probabilities. See
 [extended mathematics](docs/EXTENDED.md). Build from source for features added
 after the v0.1.0 downloadable binaries.
 
+The Windows calculator TUI is now available with
+`cargo run --release -- --tui`: fixed result/entry at the top, live stack and
+calculation history below. F3 changes focus, F4 switches narrow panes, and F5
+opens command entry. See [the TUI guide](docs/TUI.md) for keys and limitations.
+
 Initial release implementation, with the extended roadmap retained in TODO.md.
 
 - Exact arbitrary-precision integers and rational numbers

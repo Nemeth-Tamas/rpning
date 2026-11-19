@@ -2,7 +2,7 @@ use std::process::{Command, Stdio};
 
 #[test]
 fn keypad_modes_reject_piped_input_without_hanging_or_changing_repl() {
-    for flag in ["--keypad", "--keypad-diagnose"] {
+    for flag in ["--keypad", "--keypad-diagnose", "--tui"] {
         let output = Command::new(env!("CARGO_BIN_EXE_rpn"))
             .arg(flag)
             .stdin(Stdio::null())

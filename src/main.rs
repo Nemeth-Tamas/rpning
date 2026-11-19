@@ -27,6 +27,8 @@ fn run() -> io::Result<()> {
 
         [flag] if flag == "--keypad-diagnose" => keypad_terminal::run(true),
 
+        [flag] if flag == "--tui" => keypad_terminal::run_tui(),
+
         [flag] if flag == "--help" || flag == "-h" => {
             print_help();
             Ok(())
@@ -290,6 +292,7 @@ fn print_help() {
     println!("Usage:");
     println!("  rpn                       Interactive calculator");
     println!("  rpn --keypad              Immediate keypad input (Windows console)");
+    println!("  rpn --tui                 Full-screen results, stack and history (Windows)");
     println!("  rpn --keypad-diagnose     Inspect focused console key events (Windows)");
     println!("  rpn --run FILE            Execute an RPN script atomically");
     println!("  rpn --eval \"3 4 +\"          Evaluate an expression");

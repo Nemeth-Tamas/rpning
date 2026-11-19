@@ -3,6 +3,18 @@
 use std::io;
 
 #[cfg(windows)]
+pub fn run_tui() -> io::Result<()> {
+    windows::run_tui()
+}
+#[cfg(not(windows))]
+pub fn run_tui() -> io::Result<()> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "TUI currently requires a Windows console; use the ordinary REPL on this platform",
+    ))
+}
+
+#[cfg(windows)]
 pub fn read_line(
     prompt: &str,
     history: &[String],
@@ -100,6 +112,406 @@ mod windows {
             length: u32,
             count: *mut u32,
         ) -> i32;
+        fn GetConsoleScreenBufferInfo(handle: Handle, info: *mut ScreenInfo) -> i32;
+        fn WaitForSingleObject(handle: Handle, milliseconds: u32) -> u32;
+        fn WriteConsoleW(
+            handle: Handle,
+            text: *const u16,
+            length: u32,
+            written: *mut u32,
+            reserved: *mut c_void,
+        ) -> i32;
+        fn GetConsoleCursorInfo(handle: Handle, info: *mut CursorInfo) -> i32;
+        fn SetConsoleCursorInfo(handle: Handle, info: *const CursorInfo) -> i32;
+        fn SetConsoleTextAttribute(handle: Handle, attributes: u16) -> i32;
+        fn CreateFileW(
+            name: *const u16,
+            access: u32,
+            share: u32,
+            security: *mut c_void,
+            creation: u32,
+            flags: u32,
+            template: Handle,
+        ) -> Handle;
+        fn CloseHandle(handle: Handle) -> i32;
+    }
+
+    #[repr(C)]
+    #[derive(Default, Clone, Copy)]
+    struct Coord {
+        x: i16,
+        y: i16,
+    }
+    #[repr(C)]
+    #[derive(Default, Clone, Copy)]
+    struct Rect {
+        left: i16,
+        top: i16,
+        right: i16,
+        bottom: i16,
+    }
+    #[repr(C)]
+    #[derive(Default)]
+    struct ScreenInfo {
+        size: Coord,
+        cursor: Coord,
+        attributes: u16,
+        window: Rect,
+        maximum: Coord,
+    }
+    #[repr(C)]
+    #[derive(Default)]
+    struct CursorInfo {
+        size: u32,
+        visible: i32,
+    }
+
+    struct Screen {
+        handle: Handle,
+        original_mode: u32,
+        attributes: u16,
+        cursor: CursorInfo,
+        restored: bool,
+    }
+    impl Screen {
+        fn open(out: &mut impl Write) -> io::Result<Self> {
+            // SAFETY: STD_OUTPUT_HANDLE is borrowed; output mode validates it.
+            let handle = unsafe { GetStdHandle((-11i32) as u32) };
+            let mut mode = 0;
+            let mut info = ScreenInfo::default();
+            let mut cursor = CursorInfo::default();
+            // SAFETY: each pointer refers to a writable Win32-layout record.
+            if unsafe { GetConsoleMode(handle, &mut mode) } == 0
+                || unsafe { GetConsoleScreenBufferInfo(handle, &mut info) } == 0
+                || unsafe { GetConsoleCursorInfo(handle, &mut cursor) } == 0
+            {
+                return Err(io::Error::last_os_error());
+            }
+            // Enable processed output and VT processing, preserving other flags.
+            if unsafe { SetConsoleMode(handle, mode | 0x0005) } == 0 {
+                return Err(io::Error::last_os_error());
+            }
+            let screen = Self {
+                handle,
+                original_mode: mode,
+                attributes: info.attributes,
+                cursor,
+                restored: false,
+            };
+            out.write_all(b"\x1b[?1049h\x1b[?25l\x1b[2J\x1b[H")?;
+            out.flush()?;
+            Ok(screen)
+        }
+        fn size(&self) -> io::Result<(usize, usize)> {
+            let mut info = ScreenInfo::default();
+            // STDOUT can still identify the saved main buffer after a VT
+            // alternate-screen switch. Query a fresh active CONOUT$ handle so
+            // resizing the alternate viewport is observed without a keypress.
+            let name: Vec<u16> = "CONOUT$\0".encode_utf16().collect();
+            // SAFETY: null-terminated name; GENERIC_READ, shared read/write,
+            // OPEN_EXISTING; security/template pointers must be null.
+            let active = unsafe {
+                CreateFileW(
+                    name.as_ptr(),
+                    0x8000_0000,
+                    3,
+                    std::ptr::null_mut(),
+                    3,
+                    0,
+                    std::ptr::null_mut(),
+                )
+            };
+            if active.is_null() || active as isize == -1 {
+                return Err(io::Error::last_os_error());
+            }
+            // SAFETY: this handle was opened above; info is correctly aligned.
+            let result = unsafe { GetConsoleScreenBufferInfo(active, &mut info) };
+            let error = if result == 0 {
+                Some(io::Error::last_os_error())
+            } else {
+                None
+            };
+            // SAFETY: release only the newly owned query handle, never STDOUT.
+            unsafe {
+                CloseHandle(active);
+            }
+            if let Some(error) = error {
+                return Err(error);
+            }
+            Ok((
+                (i32::from(info.window.right) - i32::from(info.window.left) + 1).max(1) as usize,
+                (i32::from(info.window.bottom) - i32::from(info.window.top) + 1).max(1) as usize,
+            ))
+        }
+        fn restore(&mut self) -> io::Result<()> {
+            if self.restored {
+                return Ok(());
+            }
+            let sequence: Vec<u16> = "\x1b[0m\x1b[?25h\x1b[?1049l".encode_utf16().collect();
+            let mut written = 0;
+            // SAFETY: UTF-16 storage remains alive through this synchronous call;
+            // reserved must be null. Raw output avoids locking during Drop.
+            let output = unsafe {
+                WriteConsoleW(
+                    self.handle,
+                    sequence.as_ptr(),
+                    sequence.len() as u32,
+                    &mut written,
+                    std::ptr::null_mut(),
+                )
+            };
+            // SAFETY: restore the exact saved mode, attributes and cursor state.
+            let cursor = unsafe { SetConsoleCursorInfo(self.handle, &self.cursor) };
+            let color = unsafe { SetConsoleTextAttribute(self.handle, self.attributes) };
+            let mode = unsafe { SetConsoleMode(self.handle, self.original_mode) };
+            self.restored = true;
+            if output != 0 && cursor != 0 && color != 0 && mode != 0 {
+                Ok(())
+            } else {
+                Err(io::Error::last_os_error())
+            }
+        }
+    }
+    impl Drop for Screen {
+        fn drop(&mut self) {
+            let _ = self.restore();
+        }
+    }
+
+    fn draw_tui(
+        out: &mut impl Write,
+        ui: &rpning::tui::Tui,
+        size: (usize, usize),
+    ) -> io::Result<()> {
+        use rpning::tui::Tone;
+        out.write_all(b"\x1b[H")?;
+        let rows = ui.render(size.0.saturating_sub(1), size.1);
+        for (index, row) in rows.iter().enumerate() {
+            if index > 0 {
+                out.write_all(b"\r\n")?;
+            }
+            let color = match row.tone {
+                Tone::Normal => "37",
+                Tone::Accent => "36",
+                Tone::Result => "1;97",
+                Tone::Input => "32",
+                Tone::Error => "1;31",
+                Tone::Muted => "90",
+            };
+            write!(out, "\x1b[0;40;{color}m\x1b[2K{}", row.text)?;
+        }
+        out.write_all(b"\x1b[0m\x1b[J")?;
+        out.flush()
+    }
+
+    fn tui_event(ui: &mut rpning::tui::Tui, event: KeyEvent, high: &mut Option<u16>) -> Outcome {
+        use rpning::tui::Focus;
+        if event.down == 0 {
+            return Outcome::Continue;
+        }
+        let control = event.controls & CTRL != 0 && event.controls & ALT == 0;
+        if event.virtual_key == 0x1b || (control && event.virtual_key == 0x43) {
+            return Outcome::Quit;
+        }
+        if control && matches!(event.virtual_key, 0x5a | 0x59) {
+            return ui.key(
+                "",
+                false,
+                Some(if event.virtual_key == 0x5a {
+                    Key::Undo
+                } else {
+                    Key::Redo
+                }),
+            );
+        }
+        match event.virtual_key {
+            0x70 => {
+                ui.focus = Focus::Input;
+                return Outcome::Continue;
+            }
+            0x71 => return ui.key("layer", false, None),
+            0x72 => {
+                ui.cycle_focus();
+                return Outcome::Continue;
+            }
+            0x73 => {
+                ui.show_history = !ui.show_history;
+                ui.focus = if ui.show_history {
+                    Focus::History
+                } else {
+                    Focus::Stack
+                };
+                return Outcome::Continue;
+            }
+            0x74 => {
+                ui.toggle_command();
+                return Outcome::Continue;
+            }
+            _ => {}
+        }
+        if ui.focus != Focus::Input {
+            match event.virtual_key {
+                0x0d if ui.focus == Focus::History => ui.recall(),
+                0x26 | 0x25 => ui.scroll(-1),
+                0x28 | 0x27 => ui.scroll(1),
+                0x21 => ui.scroll(-10),
+                0x22 => ui.scroll(10),
+                0x24 => ui.scroll(-100_000),
+                0x23 => ui.scroll(100_000),
+                _ => {}
+            }
+            return Outcome::Continue;
+        }
+        if ui.command_mode {
+            match event.virtual_key {
+                0x0d => return ui.submit(),
+                0x08 => ui.backspace(),
+                0x2e => ui.delete(),
+                0x25 => ui.cursor = ui.cursor.saturating_sub(1),
+                0x27 => ui.cursor = (ui.cursor + 1).min(ui.command.chars().count()),
+                0x24 => ui.cursor = 0,
+                0x23 => ui.cursor = ui.command.chars().count(),
+                0x09 => ui.complete(),
+                _ if !control => {
+                    let unit = event.character;
+                    if (0xd800..=0xdbff).contains(&unit) {
+                        *high = Some(unit);
+                        return Outcome::Continue;
+                    }
+                    let character = if let Some(first) = high.take() {
+                        if (0xdc00..=0xdfff).contains(&unit) {
+                            char::from_u32(
+                                0x10000 + ((u32::from(first) - 0xd800) << 10) + u32::from(unit)
+                                    - 0xdc00,
+                            )
+                        } else {
+                            char::from_u32(u32::from(unit))
+                        }
+                    } else {
+                        char::from_u32(u32::from(unit))
+                    };
+                    if let Some(character) = character {
+                        ui.insert(character);
+                    }
+                }
+                _ => {}
+            }
+            return Outcome::Continue;
+        }
+        let fallback = mapped_key(event);
+        if let Some((id, navigation)) = key_identity(event) {
+            ui.key(&id, navigation, fallback)
+        } else if fallback.is_some() {
+            ui.key("", false, fallback)
+        } else {
+            Outcome::Continue
+        }
+    }
+
+    pub fn run_tui() -> io::Result<()> {
+        let mut input = ConsoleInput::open()?;
+        let config = Config::load().map_err(io::Error::other)?;
+        let mut calc = Calculator::new();
+        config.apply(&mut calc).map_err(io::Error::other)?;
+        if programming::macro_path().exists() {
+            programming::load(&mut calc, &programming::macro_path()).map_err(io::Error::other)?;
+        }
+        calc.clear_history();
+        let mut ui = rpning::tui::Tui::new(calc, config);
+        ui.history = rpning::history::History::load().map_err(io::Error::other)?;
+        let mut mode = 0;
+        // SAFETY: enable resize records for this borrowed input buffer; the
+        // existing guard restores the user's original input mode on all exits.
+        if unsafe { GetConsoleMode(input.handle, &mut mode) } == 0
+            || unsafe { SetConsoleMode(input.handle, mode | 0x0008) } == 0
+        {
+            return Err(io::Error::last_os_error());
+        }
+        let stdout = io::stdout();
+        let mut out = stdout.lock();
+        let mut screen = Screen::open(&mut out)?;
+        let mut previous_size = (0, 0);
+        let mut real_size = screen.size()?;
+        let mut event_size = None;
+        let mut dirty = true;
+        let mut high = None;
+        loop {
+            let measured = screen.size()?;
+            if measured != real_size {
+                real_size = measured;
+                event_size = None;
+            }
+            let size = event_size.unwrap_or(measured);
+            if dirty || size != previous_size {
+                draw_tui(&mut out, &ui, size)?;
+                previous_size = size;
+                dirty = false;
+            }
+            // SAFETY: input handle is valid for this session; finite wait keeps
+            // resizing responsive even without a keyboard event.
+            match unsafe { WaitForSingleObject(input.handle, 100) } {
+                258 => continue,
+                0 => {}
+                _ => return Err(io::Error::last_os_error()),
+            }
+            let mut record = InputRecord {
+                event_type: 0,
+                event: Event { raw: [0; 4] },
+            };
+            let mut count = 0;
+            // SAFETY: space for one correctly aligned INPUT_RECORD is provided.
+            if unsafe { ReadConsoleInputW(input.handle, &mut record, 1, &mut count) } == 0 {
+                return Err(io::Error::last_os_error());
+            }
+            if count == 1 && record.event_type == 0x0004 {
+                // SAFETY: WINDOW_BUFFER_SIZE_EVENT starts with two SHORTs;
+                // the raw union word contains their little-endian encoding.
+                let packed = unsafe { record.event.raw[0] };
+                let width = (packed & 0xffff) as i16;
+                let height = (packed >> 16) as i16;
+                if width > 0 && height > 0 {
+                    event_size = Some((
+                        (width as usize).min(real_size.0),
+                        (height as usize).min(real_size.1),
+                    ));
+                    dirty = true;
+                }
+                continue;
+            }
+            if count != 1 || record.event_type != KEY_EVENT {
+                continue;
+            }
+            // SAFETY: discriminant confirms the key member of the union.
+            let event = unsafe { record.event.key };
+            if event.down == 0 {
+                continue;
+            }
+            let before_macros = ui.pad.calculator().macros().clone();
+            let before_config = ui.mapping.config.clone();
+            let mut quit = false;
+            for _ in 0..event.repeats {
+                if tui_event(&mut ui, event, &mut high) == Outcome::Quit {
+                    quit = true;
+                    break;
+                }
+            }
+            if ui.pad.calculator().macros() != &before_macros {
+                programming::save(ui.pad.calculator(), &programming::macro_path())
+                    .map_err(io::Error::other)?;
+            }
+            ui.mapping.config.capture(ui.pad.calculator());
+            if ui.mapping.config != before_config {
+                ui.mapping.config.save().map_err(io::Error::other)?;
+            }
+            if quit {
+                break;
+            }
+            dirty = true;
+        }
+        ui.history.save().map_err(io::Error::other)?;
+        out.flush()?;
+        screen.restore()?;
+        input.restore()
     }
 
     struct ConsoleInput {
@@ -580,6 +992,9 @@ mod windows {
 
         #[test]
         fn bindings_match_windows_console_abi() {
+            assert_eq!(std::mem::size_of::<ScreenInfo>(), 22);
+            assert_eq!(std::mem::offset_of!(ScreenInfo, window), 10);
+            assert_eq!(std::mem::size_of::<CursorInfo>(), 8);
             assert_eq!(std::mem::size_of::<KeyEvent>(), 16);
             assert_eq!(std::mem::offset_of!(KeyEvent, controls), 12);
             assert_eq!(std::mem::size_of::<InputRecord>(), 20);

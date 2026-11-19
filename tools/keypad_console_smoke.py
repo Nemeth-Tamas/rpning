@@ -8,6 +8,7 @@ fields, Esc/Ctrl+C exits and console-mode restoration. No dependencies.
 from __future__ import annotations
 
 import ctypes
+from contextlib import contextmanager
 from ctypes import wintypes as w
 import msvcrt
 import os
@@ -35,6 +36,18 @@ class Coord(ctypes.Structure):
     _fields_ = [("x", w.SHORT), ("y", w.SHORT)]
 
 
+class Rect(ctypes.Structure):
+    _fields_ = [("left", w.SHORT), ("top", w.SHORT), ("right", w.SHORT), ("bottom", w.SHORT)]
+
+
+class ScreenInfo(ctypes.Structure):
+    _fields_ = [("size", Coord), ("cursor", Coord), ("attributes", w.WORD), ("window", Rect), ("maximum", Coord)]
+
+
+class CursorInfo(ctypes.Structure):
+    _fields_ = [("size", w.DWORD), ("visible", w.BOOL)]
+
+
 def record(vk: int, char: str = "\0", flags: int = 0x20,
            repeat: int = 1, down: bool = True) -> InputRecord:
     return InputRecord(1, Event(key=KeyEvent(down, repeat, vk, 0x53, ord(char), flags)))
@@ -48,6 +61,14 @@ def worker(executable: Path) -> None:
     kernel.WriteConsoleInputW.restype = w.BOOL
     kernel.ReadConsoleOutputCharacterW.argtypes = [w.HANDLE, w.LPWSTR, w.DWORD, Coord, ctypes.POINTER(w.DWORD)]
     kernel.ReadConsoleOutputCharacterW.restype = w.BOOL
+    kernel.GetConsoleScreenBufferInfo.argtypes = [w.HANDLE, ctypes.POINTER(ScreenInfo)]
+    kernel.GetConsoleScreenBufferInfo.restype = w.BOOL
+    kernel.GetConsoleCursorInfo.argtypes = [w.HANDLE, ctypes.POINTER(CursorInfo)]
+    kernel.GetConsoleCursorInfo.restype = w.BOOL
+    kernel.SetConsoleWindowInfo.argtypes = [w.HANDLE, w.BOOL, ctypes.POINTER(Rect)]
+    kernel.SetConsoleWindowInfo.restype = w.BOOL
+    kernel.SetConsoleScreenBufferSize.argtypes = [w.HANDLE, Coord]
+    kernel.SetConsoleScreenBufferSize.restype = w.BOOL
     assert ctypes.sizeof(InputRecord) == 20
 
     with open("CONIN$", "r") as console_in, open("CONOUT$", "w") as console_out:
@@ -131,7 +152,106 @@ def worker(executable: Path) -> None:
                  + text(":history square") + [enter]
                  + text(":quit") + [enter],
                  ["[0] 81", "[2] 81", "[3] 2", "9 square", ": square dup * ;"])
-    print("PASS: 5 isolated Windows console sessions; keypad layers, line editing, history, completion and mode restoration")
+        # TUI assertions run while its alternate buffer is active. After exit
+        # the original screen must be back, so post-exit text alone cannot
+        # validate rendering. Each read opens the currently active CONOUT$.
+        @contextmanager
+        def active_output():
+            descriptor = os.open("CONOUT$", os.O_RDWR | os.O_BINARY)
+            try:
+                yield msvcrt.get_osfhandle(descriptor)
+            finally:
+                os.close(descriptor)
+
+        def active() -> tuple[str, ScreenInfo]:
+            with active_output() as handle:
+                info = ScreenInfo()
+                if not kernel.GetConsoleScreenBufferInfo(handle, ctypes.byref(info)):
+                    raise ctypes.WinError(ctypes.get_last_error())
+                buffer = ctypes.create_unicode_buffer(32768)
+                count = w.DWORD()
+                if not kernel.ReadConsoleOutputCharacterW(handle, buffer, len(buffer), Coord(0, 0), ctypes.byref(count)):
+                    raise ctypes.WinError(ctypes.get_last_error())
+                return buffer[:count.value], info
+
+        with active_output() as handle:
+            info = ScreenInfo()
+            assert kernel.GetConsoleScreenBufferInfo(handle, ctypes.byref(info))
+            small = Rect(0, 0, min(119, info.window.right-info.window.left), min(29, info.window.bottom-info.window.top))
+            assert kernel.SetConsoleWindowInfo(handle, True, ctypes.byref(small))
+            assert kernel.SetConsoleScreenBufferSize(handle, Coord(120, max(30, info.size.y)))
+            wide = Rect(0, 0, 119, 29)
+            assert kernel.SetConsoleWindowInfo(handle, True, ctypes.byref(wide))
+
+        old_output_mode = w.DWORD()
+        assert kernel.GetConsoleMode(output_handle, ctypes.byref(old_output_mode))
+        old_cursor = CursorInfo()
+        assert kernel.GetConsoleCursorInfo(output_handle, ctypes.byref(old_cursor))
+        child = subprocess.Popen([str(executable), "--tui"], stdin=console_in, stdout=console_out, stderr=subprocess.PIPE)
+        try:
+            def wait_frame(check) -> tuple[str, ScreenInfo]:
+                deadline = time.monotonic() + 8
+                latest = ""
+                while time.monotonic() < deadline:
+                    if child.poll() is not None:
+                        raise AssertionError(f"TUI exited early: {child.communicate()[1]!r}")
+                    latest, info = active()
+                    if check(latest, info):
+                        return latest, info
+                    time.sleep(0.01)
+                raise AssertionError(f"TUI frame timed out: {latest[:4000]!r}")
+
+            def send(events: list[InputRecord]) -> None:
+                array = (InputRecord * len(events))(*events)
+                written = w.DWORD()
+                assert kernel.WriteConsoleInputW(input_handle, array, len(array), ctypes.byref(written))
+                assert written.value == len(events)
+
+            def result_is(text: str, info: ScreenInfo, expected: str) -> bool:
+                return text[3 * info.size.x:4 * info.size.x].strip() == expected
+
+            wait_frame(lambda text, info: "RESULT X" in text and "STACK" in text and "HISTORY" in text)
+            send(text("12") + [enter] + text("3+2*"))
+            wait_frame(lambda text, info: result_is(text, info, "30"))
+            send(text("0/"))
+            wait_frame(lambda text, info: result_is(text, info, "30") and "ERROR:" in text and "division by zero" in text)
+            send([record(0x08, "\b")] + text("2/"))
+            wait_frame(lambda text, info: result_is(text, info, "15"))
+            send([record(0x74)] + text("5 squa") + [record(0x09, "\t"), enter])
+            wait_frame(lambda text, info: result_is(text, info, "25"))
+            send(text(":precision 90") + [enter])
+            wait_frame(lambda text, info: "90 bits" in text)
+            send([record(0x72), record(0x72), record(0x28, flags=0x100), enter])
+            wait_frame(lambda text, info: result_is(text, info, "25") and "5 square" in text[4 * info.size.x:5 * info.size.x])
+            send([enter])
+            wait_frame(lambda text, info: "STACK [3]" in text)
+            send([record(0x5a, "\x1a", flags=0x08)])
+            wait_frame(lambda text, info: "STACK [2]" in text)
+            send([record(0x59, "\x19", flags=0x08)])
+            wait_frame(lambda text, info: "STACK [3]" in text)
+            # Inject the documented resize record into this isolated console.
+            # Classic size-changing APIs cannot resize every hidden VT host.
+            resized = InputRecord(0x0004, Event(raw=(w.DWORD * 4)(60 | (20 << 16), 0, 0, 0)))
+            send([resized])
+            wait_frame(lambda text, info: "HISTORY" in text[7 * info.size.x:8 * info.size.x] and "STACK" not in text[7 * info.size.x:8 * info.size.x])
+            send([record(0x73)])
+            wait_frame(lambda text, info: "STACK" in text[7 * info.size.x:8 * info.size.x])
+            send([record(0x1b, "\x1b")])
+            _, stderr = child.communicate(timeout=5)
+            assert child.returncode == 0, stderr.decode(errors="replace")
+            assert mode() == original_mode
+            restored = w.DWORD()
+            assert kernel.GetConsoleMode(output_handle, ctypes.byref(restored))
+            assert restored.value == old_output_mode.value
+            cursor = CursorInfo()
+            assert kernel.GetConsoleCursorInfo(output_handle, ctypes.byref(cursor))
+            assert (cursor.visible, cursor.size) == (old_cursor.visible, old_cursor.size)
+            assert "RESULT X" not in active()[0], "alternate screen was not restored"
+        finally:
+            if child.poll() is None:
+                child.kill()
+                child.wait()
+    print("PASS: 6 isolated Windows console sessions; keypad/editor/TUI, live frames, errors, recall, undo, resize and terminal restoration")
 
 
 def main() -> None:
@@ -148,11 +268,12 @@ def main() -> None:
         result = subprocess.run(
             [sys.executable, str(Path(__file__).resolve()), "--worker", str(executable)],
             creationflags=subprocess.CREATE_NEW_CONSOLE, startupinfo=startup,
-            env=dict(os.environ, RPNING_HOME=state),
+            env=dict(os.environ, RPNING_HOME=state, PYTHONIOENCODING="utf-8"),
             stdout=log, stderr=subprocess.STDOUT, timeout=30, check=False,
         )
         log.seek(0)
-        print(log.read().decode(errors="replace"), end="")
+        sys.stdout.buffer.write(log.read())
+        sys.stdout.buffer.flush()
         if result.returncode:
             raise SystemExit(result.returncode)
 

@@ -55,6 +55,10 @@ impl Keypad {
         &self.calculator
     }
 
+    pub fn calculator_mut(&mut self) -> &mut Calculator {
+        &mut self.calculator
+    }
+
     pub fn pending(&self) -> &str {
         &self.pending
     }

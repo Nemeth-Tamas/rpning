@@ -14,6 +14,7 @@ pub mod programming;
 pub mod scientific;
 pub mod storage;
 pub mod transcendental;
+pub mod tui;
 pub mod workflow;
 
 pub use engine::{CalcError, Calculator};
