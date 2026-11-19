@@ -1,0 +1,34 @@
+rpning next slice — individual downloads (no ZIP)
+Based on GitHub main cf4262affb6c4acc4948e4132b15816a3d3bdba2.
+
+Place the following downloaded files in your existing rpning repository:
+  src/math.rs               -> src/math.rs
+  src/precision.rs          -> src/precision.rs
+  src/scientific.rs         -> src/scientific.rs
+  src/storage.rs            -> src/storage.rs
+  math_cli.rs               -> tests/math_cli.rs
+  M2-BENCHMARK.md           -> docs/M2-BENCHMARK.md
+  apply_m2_m3.py            -> tools/apply_m2_m3.py
+  precision_oracle.py        -> tools/precision_oracle.py
+
+Then, from the repository root:
+  python tools/apply_m2_m3.py
+  cargo fmt
+  cargo fmt --check
+  cargo check
+  cargo test
+  cargo clippy --all-targets --all-features -- -D warnings
+  python tools/precision_oracle.py target/debug/rpn.exe
+
+The installer uses literal exact FIND->REPLACE anchors and fails before writing
+if source does not match. It updates src/lib.rs, src/engine.rs, src/main.rs,
+README.md, and only checks previously verified TODO checkboxes. It does not
+create any new TODO tasks or rename existing ones.
+
+IMPORTANT: This is a substantial M2/M3 implementation slice, NOT a claim that
+all M2/M3 goals are complete. New binary approximation and exact math operations
+still require the Windows test gates, while logarithms, trigonometry, constants,
+full arbitrary-precision real functions, optimizations and independent real
+accuracy oracles remain incomplete. Do not check those boxes before implementation.
+
+Register persistence is opt-in: :save / :load (no automatic disk writes).
