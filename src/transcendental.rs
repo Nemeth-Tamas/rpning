@@ -263,38 +263,38 @@ mod tests {
         let pi = constant("pi", 90, mode).unwrap();
         let reference =
             crate::number::parse_literal("3.1415926535897932384626433832795028841971").unwrap();
-        approximate(&pi, &reference, &(r(1) / r(1_000_000_000_000_000_000)));
+        approximate(&pi, &reference, &(r("1") / r("1000000000000000000")));
         let converted = unary("rad", &r("180"), 90, mode).unwrap();
-        approximate(&converted, &pi, &(r(1) / r(1_000_000_000)));
+        approximate(&converted, &pi, &(r("1") / r("1000000000")));
         let degrees = unary("deg", &pi, 90, mode).unwrap();
-        approximate(&degrees, &r("180"), &(r(1) / r(1_000_000_000)));
+        approximate(&degrees, &r("180"), &(r("1") / r("1000000000")));
     }
 
     #[test]
     fn logarithms_and_trigonometry() {
         let mode = Rounding::NearestEven;
         let ln_e = unary("ln", &constant("e", 90, mode).unwrap(), 90, mode).unwrap();
-        approximate(&ln_e, &r(1), &(r(1) / r(1_000_000_000)));
+        approximate(&ln_e, &r("1"), &(r("1") / r("1000000000")));
         approximate(
             &unary("log2", &r("8"), 90, mode).unwrap(),
             &r("3"),
-            &(r(1) / r(1_000_000_000)),
+            &(r("1") / r("1000000000")),
         );
         approximate(
             &unary("log10", &r("100"), 90, mode).unwrap(),
             &r("2"),
-            &(r(1) / r(1_000_000_000)),
+            &(r("1") / r("1000000000")),
         );
         let half_pi = constant("pi", 90, mode).unwrap() / r("2");
         approximate(
             &unary("sin", &half_pi, 90, mode).unwrap(),
             &r("1"),
-            &(r(1) / r(1_000_000_000)),
+            &(r("1") / r("1000000000")),
         );
         approximate(
             &unary("cos", &half_pi, 90, mode).unwrap(),
             &r("0"),
-            &(r(1) / r(1_000_000_000)),
+            &(r("1") / r("1000000000")),
         );
     }
 
