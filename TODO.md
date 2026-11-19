@@ -35,11 +35,11 @@
 - [x] Finalize arithmetic backend selection
 - [ ] Define stable internal numeric abstraction
 - [ ] Optimize small integer operations
-- [ ] Add configurable binary floating-point precision
-- [ ] Add exact-to-approximate conversion rules
-- [ ] Add configurable rounding
+- [x] Add configurable binary floating-point precision
+- [x] Add exact-to-approximate conversion rules
+- [x] Add configurable rounding
 - [x] Verify exact terminating-decimal formatting and display limits
-- [ ] Add scientific number formatting
+- [x] Add scientific number formatting
 - [ ] Add independent precision reference tests
 - [x] Benchmark integer, rational and real arithmetic
 
@@ -51,10 +51,10 @@
 - [x] Verify bounded stack snapshots, undo/redo, failed-line history and redo branching
 - [x] Verify named memory registers, atomic writes and register-aware undo/redo
 - [x] Verify register deletion, clearing, atomic rollback and undo/redo
-- [ ] Add persistent register storage
+- [x] Add persistent register storage
 - [x] Add integer division and remainder
-- [ ] Add exponentiation and roots
-- [ ] Add factorial, GCD and LCM
+- [x] Add exponentiation and roots
+- [x] Add factorial, GCD and LCM
 - [ ] Add logarithmic and exponential functions
 - [ ] Add trigonometric functions
 - [ ] Add mathematical constants

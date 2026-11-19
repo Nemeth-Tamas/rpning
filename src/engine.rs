@@ -8,6 +8,7 @@ use malachite::base::num::arithmetic::traits::DivRem;
 use crate::math;
 use crate::number::{Number, parse_literal};
 use crate::precision::{MAX_BITS, MIN_BITS, NumericSettings, Rounding, round_binary};
+use crate::transcendental;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CalcError {
@@ -354,6 +355,27 @@ impl Calculator {
                         working.remove(position)
                     };
 
+                    working.push(value);
+                }
+
+                "pi" | "e" => {
+                    let value =
+                        transcendental::constant(token, self.settings.bits, self.settings.rounding)
+                            .map_err(CalcError::Math)?;
+                    working.push(value);
+                }
+
+                "exp" | "ln" | "log2" | "log10" | "sin" | "cos" | "tan" | "rad" | "deg" => {
+                    require_depth(&working, 1, token)?;
+                    let len = working.len();
+                    let value = transcendental::unary(
+                        token,
+                        &working[len - 1],
+                        self.settings.bits,
+                        self.settings.rounding,
+                    )
+                    .map_err(CalcError::Math)?;
+                    working.pop();
                     working.push(value);
                 }
 

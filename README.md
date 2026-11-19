@@ -307,6 +307,22 @@ A corrupted register file is rejected without altering memory.
 
 Backend selection and benchmark methodology: `docs/M2-BENCHMARK.md`.
 
+## Approximate real functions (M3)
+
+The new `pi`, `e`, `exp`, `ln`, `log2`, `log10`, `sin`, `cos`, `tan`, `rad`,
+`deg` words are computed from exact rational series and then rounded to the
+configured binary precision. **They are approximate even in `:mode exact`.**
+The ordinary rational arithmetic operators remain exact in exact mode.
+
+The implementation avoids f32/f64 conversion and uses 40 guard bits, but
+is **not certified correctly rounded for every possible input**. It limits
+transcendental precision to 512 bits for responsiveness. Basic binary
+arithmetic still supports 4096 bits. Input-domain/range errors roll back
+atomically. `sin`, `cos` and `tan` accept radians; `rad` converts degrees to
+radians and `deg` converts radians to degrees.
+
+See `docs/M2-M3-REAL-MATH.md` for accuracy, limits, examples and oracle tests.
+
 ## Roadmap
 
 See `TODO.md`.

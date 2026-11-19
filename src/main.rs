@@ -266,6 +266,10 @@ fn print_help() {
     println!("  +  -  *  /                Exact rational arithmetic");
     println!("  div mod                   Integer quotient and remainder");
     println!("  pow sqrt root fact gcd lcm Exact advanced mathematics");
+    println!("  pi e                      Approximate mathematical constants");
+    println!("  exp ln log2 log10         Approximate exponential/logarithms");
+    println!("  sin cos tan               Approximate trigonometry (radians)");
+    println!("  rad deg                   Convert degrees/radians");
     println!("  approx                    Round X to current binary precision");
     println!("  dup drop swap clear       Basic stack operations");
     println!("  over                      Duplicate second stack item");
