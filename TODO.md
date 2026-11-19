@@ -129,3 +129,17 @@
 - [x] Add cross-platform release builds
 - [x] Complete user documentation
 - [x] Publish initial stable release
+
+## M9 — Calculator terminal interface
+
+- [ ] Design a split TUI layout with results above stack and history
+- [ ] Add full-screen TUI mode with safe terminal restoration
+- [ ] Show the current result and editable pending input in a persistent upper pane
+- [ ] Add a scrollable lower stack pane with X/Y/Z labels
+- [ ] Add a scrollable calculation history pane with expressions and results
+- [ ] Support side-by-side lower panes and narrow-terminal switching
+- [ ] Integrate numpad input, configurable layers and macro shortcuts
+- [ ] Add pane focus, history recall, completion and undo/redo controls
+- [ ] Show numeric settings, active layer and errors without overwriting results
+- [ ] Handle terminal resizing, long values and readable color styling
+- [ ] Verify TUI behavior while preserving REPL, pipes, scripts and one-shot evaluation

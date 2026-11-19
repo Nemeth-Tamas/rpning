@@ -2,6 +2,13 @@
 
 ## Published release and next work
 
+The user explicitly added M9: a calculator TUI with a prominent result/entry
+above a lower stack/history region. Wide terminals show lower panes side by
+side; narrow terminals switch them. The new tasks are unchecked; no TUI
+implementation is claimed. See docs/TUI.md for layout and behavior. Existing
+M0-M8 entries are preserved. M2/M7 remain open and Linux/macOS hands-on checks
+remain deferred.
+
 rpning 0.1.0 is published (non-draft, non-prerelease) at
 https://github.com/Nemeth-Tamas/rpning/releases/tag/v0.1.0 from commit
 67d12a9ae9bd5fe1527d500cc0df7c1103b07262. Windows x64, Linux x64 and macOS
