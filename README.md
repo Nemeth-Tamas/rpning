@@ -282,6 +282,31 @@ History stores full stack snapshots. A future optimization may reduce memory usa
 
 Malachite is the provisional numerical backend.
 
+## Exact advanced mathematics and numeric controls
+
+Exact operations: `pow` (integer exponent), `sqrt` (exact square root),
+`root` (integer degree), `fact`, `gcd` and `lcm`. Irrational roots are
+explicitly rejected rather than silently approximated. Exponent, factorial,
+and root-degree limits protect interactive responsiveness.
+
+The calculator starts in exact mode. To intentionally perform finite-precision
+binary arithmetic, use `:mode binary`, `:precision 53` and
+`:round nearest|zero|up|down|away`. This mode rounds the operands and result
+of the four basic arithmetic operators to a dyadic rational with the specified
+significant-bit precision. It has an unbounded exponent range and is **not**
+IEEE 754 floating point (no infinities, NaNs or signed zeros). `approx` rounds
+only the top value even in exact mode. Settings are session-local and are not
+part of undo/redo history. `:display scientific` selects lossless
+scientific notation for terminating decimal values; repeating values retain
+exact fractional output. `:settings` shows the active controls.
+
+Named registers persist only on explicit `:save` and `:load`. Default path:
+Windows `%APPDATA%/rpning/registers.txt`; Linux `$XDG_DATA_HOME/rpning/`
+`registers.txt` or `~/.local/share/rpning/registers.txt`. Loading is undoable.
+A corrupted register file is rejected without altering memory.
+
+Backend selection and benchmark methodology: `docs/M2-BENCHMARK.md`.
+
 ## Roadmap
 
 See `TODO.md`.

@@ -31,8 +31,8 @@
 
 ## M2 — Arbitrary-precision foundation
 
-- [ ] Benchmark Malachite against Rug
-- [ ] Finalize arithmetic backend selection
+- [x] Benchmark Malachite against Rug
+- [x] Finalize arithmetic backend selection
 - [ ] Define stable internal numeric abstraction
 - [ ] Optimize small integer operations
 - [ ] Add configurable binary floating-point precision
@@ -41,7 +41,7 @@
 - [x] Verify exact terminating-decimal formatting and display limits
 - [ ] Add scientific number formatting
 - [ ] Add independent precision reference tests
-- [ ] Benchmark integer, rational and real arithmetic
+- [x] Benchmark integer, rational and real arithmetic
 
 ## M3 — Advanced stack and mathematics
 
@@ -52,7 +52,7 @@
 - [x] Verify named memory registers, atomic writes and register-aware undo/redo
 - [x] Verify register deletion, clearing, atomic rollback and undo/redo
 - [ ] Add persistent register storage
-- [ ] Add integer division and remainder
+- [x] Add integer division and remainder
 - [ ] Add exponentiation and roots
 - [ ] Add factorial, GCD and LCM
 - [ ] Add logarithmic and exponential functions

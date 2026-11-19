@@ -5,7 +5,9 @@ use std::fmt;
 use malachite::Integer;
 use malachite::base::num::arithmetic::traits::DivRem;
 
+use crate::math;
 use crate::number::{Number, parse_literal};
+use crate::precision::{MAX_BITS, MIN_BITS, NumericSettings, Rounding, round_binary};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CalcError {
@@ -28,6 +30,7 @@ pub enum CalcError {
     InvalidRegisterName(String),
     UnknownRegister(String),
     IntegerOperandsRequired(String),
+    Math(String),
 }
 
 impl fmt::Display for CalcError {
@@ -65,6 +68,7 @@ impl fmt::Display for CalcError {
             Self::IntegerOperandsRequired(operator) => {
                 write!(f, "'{operator}' requires integer operands")
             }
+            Self::Math(message) => write!(f, "{message}"),
         }
     }
 }
@@ -83,6 +87,7 @@ struct Snapshot {
 pub struct Calculator {
     stack: Vec<Number>,
     registers: BTreeMap<String, Number>,
+    settings: NumericSettings,
     undo_history: Vec<Snapshot>,
     redo_history: Vec<Snapshot>,
 }
@@ -115,6 +120,58 @@ impl Calculator {
         self.registers
             .iter()
             .map(|(name, value)| (name.as_str(), value))
+    }
+
+    /// Current binary approximation and display settings.
+    pub fn settings(&self) -> NumericSettings {
+        self.settings
+    }
+
+    pub fn set_binary_mode(&mut self, enabled: bool) {
+        self.settings.binary_mode = enabled;
+    }
+
+    pub fn set_precision_bits(&mut self, bits: u64) -> Result<(), CalcError> {
+        if !(MIN_BITS..=MAX_BITS).contains(&bits) {
+            return Err(CalcError::Math(format!(
+                "precision must be between {MIN_BITS} and {MAX_BITS} bits"
+            )));
+        }
+        self.settings.bits = bits;
+        Ok(())
+    }
+
+    pub fn set_rounding(&mut self, rounding: Rounding) {
+        self.settings.rounding = rounding;
+    }
+
+    pub fn set_scientific_display(&mut self, enabled: bool) {
+        self.settings.scientific_display = enabled;
+    }
+
+    /// Replace persisted registers as one undoable transaction.
+    pub fn restore_registers(&mut self, loaded: BTreeMap<String, Number>) -> Result<(), CalcError> {
+        for name in loaded.keys() {
+            validate_register_name(name)?;
+        }
+        if loaded != self.registers {
+            let previous = Snapshot {
+                stack: self.stack.clone(),
+                registers: std::mem::replace(&mut self.registers, loaded),
+            };
+            push_bounded(&mut self.undo_history, previous);
+            self.redo_history.clear();
+        }
+        Ok(())
+    }
+
+    fn quantize(&self, value: Number) -> Result<Number, CalcError> {
+        if self.settings.binary_mode {
+            round_binary(&value, self.settings.bits, self.settings.rounding)
+                .map_err(|message| CalcError::Math(message.to_owned()))
+        } else {
+            Ok(value)
+        }
     }
 
     /// Restore the previous successful calculator state.
@@ -165,8 +222,8 @@ impl Calculator {
                     require_depth(&working, 2, token)?;
 
                     let len = working.len();
-                    let x = working.remove(len - 1);
-                    let y = working.remove(len - 2);
+                    let x = self.quantize(working.remove(len - 1))?;
+                    let y = self.quantize(working.remove(len - 2))?;
 
                     if token == "/" && x == 0 {
                         return Err(CalcError::DivisionByZero);
@@ -180,7 +237,7 @@ impl Calculator {
                         _ => return Err(CalcError::UnknownToken(token.to_owned())),
                     };
 
-                    working.push(result);
+                    working.push(self.quantize(result)?);
                 }
 
                 "div" | "mod" => {
@@ -300,6 +357,35 @@ impl Calculator {
                     working.push(value);
                 }
 
+                "pow" | "root" | "gcd" | "lcm" => {
+                    require_depth(&working, 2, token)?;
+                    let len = working.len();
+                    let result = math::binary(token, &working[len - 2], &working[len - 1])
+                        .map_err(|error| CalcError::Math(error.to_string()))?;
+                    working.truncate(len - 2);
+                    working.push(self.quantize(result)?);
+                }
+
+                "sqrt" | "fact" => {
+                    require_depth(&working, 1, token)?;
+                    let len = working.len();
+                    let result = math::unary(token, &working[len - 1])
+                        .map_err(|error| CalcError::Math(error.to_string()))?;
+                    working.pop();
+                    working.push(self.quantize(result)?);
+                }
+
+                "approx" => {
+                    require_depth(&working, 1, token)?;
+                    let len = working.len();
+                    working[len - 1] = round_binary(
+                        &working[len - 1],
+                        self.settings.bits,
+                        self.settings.rounding,
+                    )
+                    .map_err(|message| CalcError::Math(message.to_owned()))?;
+                }
+
                 _ if token.starts_with("sto:") => {
                     let name = &token[4..];
                     validate_register_name(name)?;
@@ -318,7 +404,7 @@ impl Calculator {
                         .ok_or_else(|| CalcError::UnknownRegister(name.to_owned()))?
                         .clone();
 
-                    working.push(value);
+                    working.push(self.quantize(value)?);
                 }
 
                 _ if token.starts_with("del:") => {
@@ -338,7 +424,7 @@ impl Calculator {
                     let value = parse_literal(token)
                         .ok_or_else(|| CalcError::UnknownToken(token.to_owned()))?;
 
-                    working.push(value);
+                    working.push(self.quantize(value)?);
                 }
             }
         }
@@ -1174,6 +1260,52 @@ mod tests {
         assert!(calc.redo());
         assert_stack(&calc, &["8"]);
         assert_eq!(calc.register("answer").unwrap().to_string(), "8");
+    }
+
+    #[test]
+    fn exact_advanced_math_preserves_atomicity_and_history() {
+        let mut calc = Calculator::new();
+        calc.evaluate("2 10 pow").unwrap();
+        assert_stack(&calc, &["1024"]);
+        calc.evaluate("9/4 sqrt").unwrap();
+        assert_stack(&calc, &["1024", "3/2"]);
+        let before = calc.stack().to_vec();
+        assert!(calc.evaluate("2 sqrt").is_err());
+        assert_eq!(calc.stack(), before);
+        assert!(calc.undo());
+        assert_stack(&calc, &["1024"]);
+        calc.evaluate("clear 48 18 gcd 5 fact +").unwrap();
+        assert_stack(&calc, &["126"]);
+    }
+
+    #[test]
+    fn binary_mode_rounds_results_without_f64() {
+        let mut calc = Calculator::new();
+        calc.set_precision_bits(4).unwrap();
+        calc.set_binary_mode(true);
+        calc.evaluate("1 3 /").unwrap();
+        assert_stack(&calc, &["11/32"]);
+        calc.set_rounding(crate::precision::Rounding::TowardZero);
+        calc.evaluate("clear 1 3 /").unwrap();
+        assert_stack(&calc, &["5/16"]);
+        calc.set_binary_mode(false);
+        calc.evaluate("clear 1 3 /").unwrap();
+        assert_stack(&calc, &["1/3"]);
+    }
+
+    #[test]
+    fn restore_registers_is_undoable() {
+        let mut calc = Calculator::new();
+        calc.evaluate("5 sto:old").unwrap();
+        let loaded = std::collections::BTreeMap::from([(
+            "new".to_owned(),
+            crate::number::parse_literal("1/3").unwrap(),
+        )]);
+        calc.restore_registers(loaded).unwrap();
+        assert!(calc.register("old").is_none());
+        assert_eq!(calc.register("new").unwrap().to_string(), "1/3");
+        assert!(calc.undo());
+        assert_eq!(calc.register("old").unwrap().to_string(), "5");
     }
 
     #[test]
